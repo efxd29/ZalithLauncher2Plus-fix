@@ -4,7 +4,10 @@ import static android.content.Context.INPUT_METHOD_SERVICE;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.inputmethod.InputMethodManager;
+
+import org.libsdl.app.SDLActivity;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -27,14 +30,37 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     }
 
 
+    private static TouchCharInput sActiveInput;
     private boolean mIsDoingInternalChanges = false;
     private InputListener mListener;
 
     public void enableKeyboard() {
+        if (SDLActivity.isUsingSDLTextEdit()) {
+            SDLActivity.enableSDLEditKeyboard();
+            return;
+        }
         InputMethodManager imm = (InputMethodManager) getContext().getSystemService(INPUT_METHOD_SERVICE);
         enable();
+        sActiveInput = this;
         imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT);
         clear();
+    }
+
+    public static void disableActiveInput() {
+        if (sActiveInput != null) {
+            sActiveInput.disableKeyboard();
+        }
+    }
+
+    public void disableKeyboard() {
+        InputMethodManager imm = (InputMethodManager) getContext().getSystemService(INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(getWindowToken(), 0);
+        clearFocus();
+        setVisibility(GONE);
+        setEnabled(false);
+        if (sActiveInput == this) {
+            sActiveInput = null;
+        }
     }
 
     /**
@@ -52,11 +78,28 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     private void enable(){
         setEnabled(true);
         setFocusable(true);
+        setVisibility(VISIBLE);
         requestFocus();
     }
 
     public void setListener(InputListener listener){
         mListener = listener;
+    }
+
+    @Override
+    public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+            disableKeyboard();
+        }
+        return super.onKeyPreIme(keyCode, event);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
+        super.onWindowFocusChanged(hasWindowFocus);
+        if (!hasWindowFocus) {
+            disableKeyboard();
+        }
     }
 
     /** This function deals with anything that has to be executed when the constructor is called */
@@ -70,8 +113,8 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
             clear();
             return false;
         });
-        enable();
         clear();
+        disableKeyboard();
     }
 
     /**

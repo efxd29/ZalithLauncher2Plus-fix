@@ -60,7 +60,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := exithook
 LOCAL_LDLIBS := -ldl -llog
 LOCAL_SHARED_LIBRARIES := bytehook pojavexec
-LOCAL_SRC_FILES := exit_hook.c
+LOCAL_SRC_FILES := exit_hook.c \
+    sdl_hook.c \
+    sdl_dlopen_hook.c
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -120,13 +122,10 @@ LOCAL_MODULE := namespace_shim
 LOCAL_SRC_FILES := namespace_shim.c
 include $(BUILD_SHARED_LIBRARY)
 
-
 include $(CLEAR_VARS)
 LOCAL_PATH := $(HERE_PATH)
 LOCAL_MODULE := zl_fsr
 LOCAL_CFLAGS += -rdynamic
 LOCAL_LDLIBS := -ldl -llog -lEGL -lGLESv2
-LOCAL_SRC_FILES := \
-    fsr/fsr_hook.cpp
+LOCAL_SRC_FILES := fsr/fsr_hook.cpp
 include $(BUILD_SHARED_LIBRARY)
-

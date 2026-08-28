@@ -33,6 +33,7 @@ import com.movtery.zalithlauncher.setting.enums.BackgroundBlur
 import com.movtery.zalithlauncher.setting.enums.ChromaMode
 import com.movtery.zalithlauncher.setting.enums.DarkMode
 import com.movtery.zalithlauncher.setting.enums.GestureActionType
+import com.movtery.zalithlauncher.setting.enums.GamepadInputMode
 import com.movtery.zalithlauncher.setting.enums.HomePageType
 import com.movtery.zalithlauncher.setting.enums.MirrorSourceType
 import com.movtery.zalithlauncher.setting.enums.MouseControlMode
@@ -287,6 +288,21 @@ object AllSettings : SettingsRegistry() {
      * 是否启用手柄控制
      */
     val gamepadControl = boolSetting("gamepadControl", true)
+
+    /**
+     * SDL 下是否允许自动唤起输入法
+     */
+    val sdlAutoShowIme = boolSetting("sdlAutoShowIme", true)
+
+    /**
+     * 手柄输入模式（映射虚拟按键 / SDL 直通）
+     */
+    val gamepadInputMode = enumSetting("gamepadInputMode", GamepadInputMode.Mapped)
+
+    /**
+     * 是否已完成手柄输入模式的选择询问
+     */
+    val gamepadInputModePrompted = boolSetting("gamepadInputModePrompted", false)
 
     /**
      * 摇杆死区缩放

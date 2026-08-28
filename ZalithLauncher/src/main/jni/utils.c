@@ -119,28 +119,39 @@ JNIEXPORT jint JNICALL Java_com_movtery_zalithlauncher_bridge_ZLBridge_chdir(JNI
 	return retval;
 }
 
-JNIEXPORT void JNICALL Java_com_movtery_zalithlauncher_bridge_ZLBridge_fsrInit(JNIEnv *env, jclass clazz, jint qualityPreset) {
-	void (*fsr_init_fn)(int) = dlsym(RTLD_DEFAULT, "fsr_init");
-	if (fsr_init_fn) {
-		fsr_init_fn((int)qualityPreset);
-	} else {
-		LOG_TO_E("FSR: fsr_init not found");
-	}
+
+JNIEnv* get_attached_env(JavaVM* jvm) {
+    if (jvm == NULL) return NULL;
+    JNIEnv *env = NULL;
+    jint status = (*jvm)->GetEnv(jvm, (void**)&env, JNI_VERSION_1_4);
+    if (status == JNI_OK) return env;
+    if (status == JNI_EDETACHED) {
+        if ((*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL) == JNI_OK) {
+            return env;
+        }
+    }
+    return NULL;
 }
 
-JNIEXPORT void JNICALL Java_com_movtery_zalithlauncher_bridge_ZLBridge_fsrSetQuality(JNIEnv *env, jclass clazz, jint qualityPreset) {
-	void (*fsr_set_quality_fn)(int) = dlsym(RTLD_DEFAULT, "fsr_set_quality");
-	if (fsr_set_quality_fn) {
-		fsr_set_quality_fn((int)qualityPreset);
-	}
+bool notifyLauncher(JNIEnv *dvm_env, int type, int actions[], int len) {
+    jintArray actionArray = (*dvm_env)->NewIntArray(dvm_env, len);
+    (*dvm_env)->SetIntArrayRegion(dvm_env, actionArray, 0, len, actions);
+    return (*dvm_env)->CallStaticBooleanMethod(dvm_env, pojav_environ->bridgeClazz,
+            pojav_environ->method_notifyLauncher, type, actionArray);
 }
 
-JNIEXPORT void JNICALL Java_com_movtery_zalithlauncher_bridge_ZLBridge_fpsLimitSet(JNIEnv *env, jclass clazz, jint fps) {
-	void (*fpslimit_set_limit_fn)(int) = dlsym(RTLD_DEFAULT, "fpslimit_set_limit");
-	if (fpslimit_set_limit_fn) {
-		fpslimit_set_limit_fn((int)fps);
-	} else {
-		LOG_TO_E("FPSLimit: fpslimit_set_limit not found");
+jintArray convertIntArrayJVM(JNIEnv* srcEnv, JNIEnv* dstEnv, jintArray srcIntArray) {
+	if (srcIntArray == NULL) {
+		return NULL;
 	}
-}
 
+	jsize len = (*srcEnv)->GetArrayLength(srcEnv, srcIntArray);
+	jint* srcPtr = (*srcEnv)->GetIntArrayElements(srcEnv, srcIntArray, NULL);
+
+	jintArray dstIntArray = (*dstEnv)->NewIntArray(dstEnv, len);
+	(*dstEnv)->SetIntArrayRegion(dstEnv, dstIntArray, 0, len, srcPtr);
+
+	(*srcEnv)->ReleaseIntArrayElements(srcEnv, srcIntArray, srcPtr, JNI_ABORT);
+
+	return dstIntArray;
+}

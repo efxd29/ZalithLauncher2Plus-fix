@@ -367,6 +367,7 @@
     <string name="game_menu_option_force_close_text">強制關閉正在執行的遊戲可能會導致存檔損壞或設定無法儲存，除非特殊情況請避免此操作。</string>
     <string name="game_menu_option_switch_log">日誌輸出</string>
     <string name="game_menu_option_input_method">切換輸入法</string>
+    <string name="game_menu_option_auto_show_ime">自動喚起輸入法（SDL）</string>
     <string name="game_menu_option_switch_fps">幀率顯示</string>
     <string name="game_menu_option_switch_memory">記憶體顯示</string>
     <string name="game_menu_option_fps_settings">幀率設定</string>
@@ -903,6 +904,13 @@
     <string name="settings_control_gyroscope_invert_y_summary">啟用後，上下轉動裝置會反向控制視角</string>
     <string name="settings_gamepad_title">手把控制</string>
     <string name="settings_gamepad_summary">啟用或關閉手把控制功能。若您的其他外設被誤識別為手把，請關閉此選項。</string>
+    <string name="settings_gamepad_input_mode_title">手把輸入模式</string>
+    <string name="settings_gamepad_input_mode_mapped">映射（虛擬按鍵）</string>
+    <string name="settings_gamepad_input_mode_mapped_summary">手把按鍵與搖桿作為虛擬鍵盤和滑鼠使用</string>
+    <string name="settings_gamepad_input_mode_sdl">SDL 直通</string>
+    <string name="settings_gamepad_input_mode_sdl_summary">手把輸入經 SDL/GLFW gamepad API 原樣交給遊戲，不經過按鍵映射</string>
+    <string name="gamepad_mode_prompt_description">偵測到手把輸入。啟動器支援兩種手把輸入模式，請選擇您希望使用的模式。</string>
+    <string name="gamepad_mode_prompt_hint">稍後可以在遊戲選單的「手把」分頁或啟動器設定中更改。</string>
     <string name="settings_gamepad_deadzone_title">手把死區縮放</string>
     <string name="settings_gamepad_deadzone_summary">設定搖桿中心無反應區域的比例</string>
     <string name="settings_gamepad_joystick_mode_title">搖桿操作模式</string>
