@@ -178,9 +178,6 @@ abstract class Launcher(
             put("pojav.path.minecraft", getGameHome())
             put("pojav.path.private.account", PathManager.DIR_DATA_BASES.absolutePath)
             put("org.lwjgl.vulkan.libname", "libvulkan.so")
-            // LWJGL 3.4 的 Library.loadSystem 通过该属性定位 native 库。
-            // 指向 per-version natives 目录，保证 3.4.x 游戏加载对应版本的 liblwjgl.so 等。
-            put("org.lwjgl.librarypath", lwjglNativesDir)
             put("glfwstub.windowWidth", screenSize.width.toString())
             put("glfwstub.windowHeight", screenSize.height.toString())
             put("glfwstub.initEgl", "false")
