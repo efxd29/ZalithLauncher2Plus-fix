@@ -18,7 +18,7 @@ jobs:
       - name: Build
         run: |
           chmod +x gradlew
-          ./gradlew ZalithLauncher:assembleDebug -Darch=arm64 --stacktrace 2>&1 | tail -n 400 > build.log; test ${PIPESTATUS[0]} -eq 0
+          ./gradlew ZalithLauncher:assembleDebug -Darch=arm64 --stacktrace > build.log 2>&1 || { echo "=== ERRORS ==="; grep -nE "^e: |error:|What went wrong|Execution failed|Unresolved|FAILED" -A3 build.log | cut -c1-300 | head -90; tail -n 400 build.log > build.tail; mv build.tail build.log; exit 1; }
         shell: bash
       - uses: actions/upload-artifact@v4
         if: always()
