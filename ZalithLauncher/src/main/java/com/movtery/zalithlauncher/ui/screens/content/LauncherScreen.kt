@@ -292,8 +292,6 @@ private fun ContentMenu(
                 }
             }
         }
-    }
-}
 
         // Stats grid fills remaining space — no scroll
         StatsGrid(
