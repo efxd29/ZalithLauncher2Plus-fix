@@ -41,6 +41,11 @@ fun getKeyFromLocal(envKey: String, fileName: String? = null, default: String? =
 }
 
 android {
+    lint {
+        // Plus retains translated strings from its added features; unused translations must not block releases.
+        disable += "ExtraTranslation"
+    }
+
     namespace = zalithPackageName
     compileSdk = 37
 
