@@ -78,7 +78,6 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.version.installed.Version
-import com.movtery.zalithlauncher.path.URL_ORIGINAL_PROJECT
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
@@ -150,24 +149,8 @@ fun MainScreen(
     }
 
     val isTaskMenuExpanded = AllSettings.launcherTaskMenuExpanded.state
-    val showDisclaimer = AllSettings.disclaimerAccepted.state
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    if (!showDisclaimer) {
-        SimpleAlertDialog(
-            title = stringResource(R.string.disclaimer_title),
-            text = stringResource(R.string.disclaimer_content),
-            confirmText = stringResource(R.string.generic_got_it),
-            dismissText = stringResource(R.string.disclaimer_original_repo),
-            onConfirm = {
-                AllSettings.disclaimerAccepted.save(true)
-            },
-            onDismiss = {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(URL_ORIGINAL_PROJECT))
-                context.startActivity(intent)
-            }
-        )
-    }
 
     fun changeTasksExpandedState() {
         AllSettings.launcherTaskMenuExpanded.save(!isTaskMenuExpanded)

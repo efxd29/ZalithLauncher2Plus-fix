@@ -21,11 +21,12 @@ package com.movtery.zalithlauncher.game.sdl
 import android.app.Activity
 import android.view.Surface
 import android.view.ViewGroup
-import androidx.annotation.MainThread
 import androidx.annotation.Keep
+import androidx.annotation.MainThread
 import com.movtery.zalithlauncher.setting.AllSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.libsdl.app.SDL
 import org.libsdl.app.SDLActivity
 import org.libsdl.app.SDLSurface
@@ -39,9 +40,14 @@ import java.lang.ref.WeakReference
 object SdlBridge {
     private val _enabled = MutableStateFlow(false)
     val enabled = _enabled.asStateFlow()
+
+    private val _composeFocus = MutableStateFlow(0)
+    val composeFocus = _composeFocus.asStateFlow()
+
     private var activityRef: WeakReference<Activity>? = null
     private var layoutRef: WeakReference<ViewGroup>? = null
     private var currentSurface: Surface? = null
+
 
     /** 当前注册 Surface 的来源 */
     private var currentSource: Any? = null
@@ -117,6 +123,11 @@ object SdlBridge {
     }
 
     @JvmStatic
+    fun requestComposeFocus() {
+        _composeFocus.update { it + 1 }
+    }
+
+    @JvmStatic
     @MainThread
     fun beginSurfaceDestroy(source: Any?, surface: Surface?): Boolean {
         return source != null && currentSource === source && surface != null && currentSurface === surface
@@ -150,4 +161,28 @@ object SdlBridge {
 
     @JvmStatic
     external fun initializeControllerSubsystems()
+
+    /**
+     * 游戏是否运行在 SDL 渲染路径（SDL 窗口已创建，MC 26.3+）
+     * 仅手柄子系统使用 SDL 时（如 MC 26.2 挂 Controlify）返回 false，
+     * 此时游戏输入仍走 GLFW 桥，启动器不应把键盘切换委托给 SDL 输入通道
+     */
+    @JvmStatic
+    external fun isSdlRenderActive(): Boolean
+
+    /**
+     * 激活/关闭 native 侧 SDL 文本输入通道
+     * 游戏侧通道被模组（自绘输入界面）关闭时，启动器显式唤起输入法需代为激活，
+     * 否则输入法提交的文本会在 native 层被丢弃
+     */
+    @JvmStatic
+    external fun setNativeTextInputActive(active: Boolean): Boolean
+
+    /**
+     * native 侧 SDL 文本输入通道当前是否激活（SDL_TextInputActive）
+     * Java 侧激活镜像经 showTextInput JNI 回调同步，该回调受 SDL_ENABLE_SCREEN_KEYBOARD hint
+     * 支配（MC 运行中会把它设回 0）而可能缺失，判定须以 native 真实状态为准
+     */
+    @JvmStatic
+    external fun isNativeTextInputActive(): Boolean
 }

@@ -20,6 +20,7 @@ import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
@@ -54,8 +55,9 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // Is SurfaceView ready for rendering
     protected boolean mIsSurfaceReady;
 
-    // Is on-screen keyboard visible
-    protected boolean mKeyboardVisible;
+    // Last absolute position reported by a touchpad, used to derive relative motion
+    protected float mLastTouchpadX, mLastTouchpadY;
+    protected boolean mHasTouchpadLastPos;
 
     // Pinch events
     private final ScaleGestureDetector scaleGestureDetector;
@@ -256,17 +258,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
             SDLActivity.onNativeInsetsChanged(combined.left, combined.right, combined.top, combined.bottom);
 
-            if (insets.isVisible(WindowInsets.Type.ime())) {
-                if (!mKeyboardVisible) {
-                    mKeyboardVisible = true;
-                    SDLActivity.onNativeScreenKeyboardShown();
-                }
-            } else {
-                if (mKeyboardVisible) {
-                    mKeyboardVisible = false;
-                    SDLActivity.onNativeScreenKeyboardHidden();
-                }
-            }
+            SdlImeController.notifyVisibilityChanged(insets.isVisible(WindowInsets.Type.ime()));
         }
 
         // Pass these to any child views in case they need them
@@ -451,6 +443,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     {
         int action = event.getActionMasked();
         int pointerCount = event.getPointerCount();
+        boolean isTouchpad = event.isFromSource(InputDevice.SOURCE_TOUCHPAD);
 
         for (int i = 0; i < pointerCount; i++) {
             float x, y;
@@ -463,10 +456,52 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
                 case MotionEvent.ACTION_HOVER_MOVE:
                 case MotionEvent.ACTION_MOVE:
-                    x = event.getX(i);
-                    y = event.getY(i);
+                    if (isTouchpad) {
+                        // A touchpad reports the finger's absolute position on its
+                        // surface, which must not be fed as relative motion; fall
+                        // back to the delta between consecutive events when the
+                        // relative axes are missing.
+                        float relX = event.getAxisValue(MotionEvent.AXIS_RELATIVE_X, i);
+                        float relY = event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y, i);
+                        if (relX != 0f || relY != 0f) {
+                            x = relX;
+                            y = relY;
+                        } else {
+                            if (!mHasTouchpadLastPos) {
+                                mLastTouchpadX = event.getX(i);
+                                mLastTouchpadY = event.getY(i);
+                                mHasTouchpadLastPos = true;
+                                return true;
+                            }
+                            x = event.getX(i) - mLastTouchpadX;
+                            y = event.getY(i) - mLastTouchpadY;
+                            mLastTouchpadX = event.getX(i);
+                            mLastTouchpadY = event.getY(i);
+                        }
+                    } else {
+                        x = event.getX(i);
+                        y = event.getY(i);
+                    }
                     SDLActivity.onNativeMouse(0, action, x, y, true);
                     return true;
+
+                case MotionEvent.ACTION_DOWN:
+                case MotionEvent.ACTION_HOVER_ENTER:
+                    // A touchpad position jumps when the finger lands, so the
+                    // delta baseline has to be rebuilt on those events
+                    if (isTouchpad) {
+                        mLastTouchpadX = event.getX(i);
+                        mLastTouchpadY = event.getY(i);
+                        mHasTouchpadLastPos = true;
+                    }
+                    break;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_HOVER_EXIT:
+                    if (isTouchpad) {
+                        mHasTouchpadLastPos = false;
+                    }
+                    break;
 
                 case MotionEvent.ACTION_BUTTON_PRESS:
                 case MotionEvent.ACTION_BUTTON_RELEASE:
