@@ -1,0 +1,29 @@
+name: Build arm64 APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew ZalithLauncher:assembleDebug -Darch=arm64 --stacktrace 2>&1 | tail -n 400 > build.log; test ${PIPESTATUS[0]} -eq 0
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result
+          path: |
+            build.log
+            ZalithLauncher/build/outputs/apk/**/*.apk

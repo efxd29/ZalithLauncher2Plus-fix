@@ -155,7 +155,7 @@ fun MainScreen(
     val showDisclaimer = AllSettings.disclaimerAccepted.state
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    if (!showDisclaimer) {
+    if (false && !showDisclaimer) {
         SimpleAlertDialog(
             title = stringResource(R.string.disclaimer_title),
             text = stringResource(R.string.disclaimer_content),
