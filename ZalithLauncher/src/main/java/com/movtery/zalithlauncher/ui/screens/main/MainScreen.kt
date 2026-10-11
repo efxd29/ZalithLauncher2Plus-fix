@@ -86,6 +86,7 @@ import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
 import com.movtery.zalithlauncher.ui.components.TextRailItem
+import com.movtery.zalithlauncher.ui.guide.sendStartGuideOnce
 import com.movtery.zalithlauncher.ui.screens.BackStackNavKey
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
@@ -95,7 +96,6 @@ import com.movtery.zalithlauncher.ui.screens.content.BuiltInFileManagerScreen
 import com.movtery.zalithlauncher.ui.screens.content.DownloadScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileEditorScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileSelectorScreen
-import com.movtery.zalithlauncher.ui.screens.content.HomePageEditorScreen
 import com.movtery.zalithlauncher.ui.screens.content.LauncherScreen
 import com.movtery.zalithlauncher.ui.screens.content.LicenseScreen
 import com.movtery.zalithlauncher.ui.screens.content.GameStatsScreen
@@ -116,7 +116,7 @@ import com.movtery.zalithlauncher.ui.screens.onBack
 import com.movtery.zalithlauncher.ui.screens.rememberTransitionSpec
 import com.movtery.zalithlauncher.ui.theme.backgroundColor
 import com.movtery.zalithlauncher.ui.theme.cardColor
-import com.movtery.zalithlauncher.ui.theme.feativals.FestivalTitleText
+import com.movtery.zalithlauncher.ui.theme.festivals.FestivalTitleText
 import com.movtery.zalithlauncher.ui.theme.onBackgroundColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import com.movtery.zalithlauncher.utils.animation.getAnimateTween
@@ -125,6 +125,7 @@ import com.movtery.zalithlauncher.utils.file.formatFileSize
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import com.movtery.zalithlauncher.viewmodel.LocalBackgroundViewModel
+import com.movtery.zalithlauncher.viewmodel.ModifyVersionViewModel
 import com.movtery.zalithlauncher.viewmodel.ModpackImportViewModel
 import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
 import com.movtery.zalithlauncher.viewmodel.sendKeepScreen
@@ -135,6 +136,7 @@ fun MainScreen(
     screenBackStackModel: ScreenBackStackViewModel,
     eventViewModel: EventViewModel,
     modpackImportViewModel: ModpackImportViewModel,
+    modifyVersionViewModel: ModifyVersionViewModel,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
     val tasks by TaskSystem.tasksFlow.collectAsStateWithLifecycle()
@@ -252,6 +254,7 @@ fun MainScreen(
                     toMainScreen = toMainScreen,
                     eventViewModel = eventViewModel,
                     modpackImportViewModel = modpackImportViewModel,
+                    modifyVersionViewModel = modifyVersionViewModel,
                     submitError = submitError
                 )
 
@@ -447,6 +450,15 @@ private fun <E: TitledNavKey> TopBar(
                     }
                 }
 
+                IconButton(
+                    onClick = openFileManager
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_folder_filled),
+                        contentDescription = null
+                    )
+                }
+
                 TopBarRailItem(
                     selected = inRecordingsScreen,
                     painter = painterResource(R.drawable.ic_videocam_filled),
@@ -538,6 +550,7 @@ private fun NavigationUI(
     toMainScreen: () -> Unit,
     eventViewModel: EventViewModel,
     modpackImportViewModel: ModpackImportViewModel,
+    modifyVersionViewModel: ModifyVersionViewModel,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
     val backStack = screenBackStackModel.mainScreen.backStack
@@ -587,6 +600,17 @@ private fun NavigationUI(
                                 EventViewModel.Event.Launch.Game(version)
                             )
                         },
+                        onQuickPlayServer = { version, address ->
+                            val target = (version ?: VersionsManager.currentVersion.value)?.takeIf { it.isValid() }
+                            if (target != null) {
+                                eventViewModel.sendEvent(
+                                    EventViewModel.Event.Launch.PlayServer(target, address)
+                                )
+                            } else {
+                                eventViewModel.sendToast(androidText(R.string.game_launch_no_version))
+                                screenBackStackModel.mainScreen.navigateTo(NormalNavKey.VersionsManager)
+                            }
+                        },
                         onOpenLink = {
                             eventViewModel.sendEvent(EventViewModel.Event.OpenLink(it))
                         },
@@ -629,9 +653,7 @@ private fun NavigationUI(
                         openLink = { url ->
                             eventViewModel.sendEvent(EventViewModel.Event.OpenLink(url))
                         },
-                        showToast = { text, duration ->
-                            eventViewModel.sendToast(text, duration)
-                        },
+                        eventViewModel = eventViewModel,
                         submitError = submitError
                     )
                 }
@@ -662,6 +684,7 @@ private fun NavigationUI(
                 entry<NestedNavKey.VersionSettings> { key ->
                     VersionSettingsScreen(
                         key = key,
+                        modifyViewModel = modifyVersionViewModel,
                         backScreenViewModel = screenBackStackModel,
                         backToMainScreen = toMainScreen,
                         onExportModpack = {

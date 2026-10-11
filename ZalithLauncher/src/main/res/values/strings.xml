@@ -81,6 +81,7 @@
     <string name="generic_unspecified">Unspecified</string>
     <string name="generic_save">Save</string>
     <string name="generic_saved">Saved</string>
+    <string name="generic_saving">Saving…</string>
     <string name="generic_share">Share</string>
     <string name="generic_copied">Copied</string>
     <string name="generic_no_matching_items">No matching items</string>
@@ -105,6 +106,7 @@
     <!-- Unit -->
     <string name="unit_day">day</string>
     <string name="date_format">MMM d, yyyy, h:mm:ss a</string>
+    <string name="duration_format">%s Days %s Hours %s Minutes</string>
     <string name="just_now">just now</string>
     <string name="minutes_ago">%d minutes ago</string>
     <string name="hours_ago">%d hours ago</string>
@@ -221,6 +223,8 @@
     <string name="notification_data_jvm_service_running">Installing game via foreground service</string>
     <string name="notification_data_terracotta_message">During multiplayer sessions, the launcher uses a foreground service to display the current connection status, so notification permission is required.</string>
     <string name="notification_jvm_running_name">JVM Keep-Alive Service</string>
+    <string name="notification_task_service_name">Task Keep-Alive Service</string>
+    <string name="notification_task_service_running">Tasks are running in the background. Please keep the launcher running.</string>
     <!--  Microphone  -->
     <string name="microphone_check_title">Check Microphone Input</string>
     <string name="microphone_check_volume">Volume: %d</string>
@@ -240,6 +244,7 @@
     <string name="unpack_screen_jna">Enables Minecraft to directly call low-level OS functions</string>
     <!-- Main Menu -->
     <string name="main_launch_game">Launch</string>
+    <string name="launch_check_mods">Checking mods</string>
     <string name="main_task_menu">Task Menu</string>
     <!--  Download  -->
     <string name="download_category_game">Game</string>
@@ -249,6 +254,7 @@
     <string name="download_category_saves">Saves</string>
     <string name="download_category_shaders">Shader Pack</string>
     <string name="download_category_by_id">Search by ID</string>
+    <string name="download_category_favorites">Favorites</string>
     <string name="download_game_failed_to_get_versions">Failed to get version: %s. Tap to retry.</string>
     <string name="download_game_type_release">Release</string>
     <string name="download_game_type_snapshot">Snapshot</string>
@@ -257,9 +263,6 @@
     <string name="download_game_type_old_alpha">Alpha</string>
     <string name="download_game_type_old_beta">Beta</string>
     <string name="download_game_version_name">Version Name</string>
-    <string name="download_game_version_overwrite">Will overwrite existing version: %s</string>
-    <string name="download_game_version_overwrite_select">Version to overwrite</string>
-    <string name="download_game_version_overwrite_select_subtitle">Select the version to overwrite. You can use this feature to upgrade/downgrade the target version</string>
     <string name="download_game_addon_list_load_error">Failed to load list: %s</string>
     <string name="download_game_addon_available">Available</string>
     <string name="download_game_addon_unavailable">Unavailable</string>
@@ -280,6 +283,7 @@
     <string name="download_game_install_base_install">Install %s</string>
     <string name="download_game_install_base_installing">Installing %s in the foreground</string>
     <string name="download_game_install_optifine_fetch_download_url">Fetch download URL for OptiFine %s</string>
+    <string name="download_install_error_optifine_forge17_incompatible">This OptiFine (build %s) is incompatible with Forge 1.17+. OptiFine H1 Pre2 (20210924–190833) or newer is required.</string>
     <string name="download_game_install_forgelike_analyse">Analyze libraries for %s</string>
     <string name="download_game_install_forgelike_preparing_mapping_file">Preparing %s mapping file</string>
     <string name="download_game_install_game_files_progress">Install game files</string>
@@ -288,6 +292,7 @@
     <string name="download_install_error_message">An exception occurred during the installation of your game:</string>
     <string name="download_install_error_cant_fetch_optifine_download_url">Unable to retrieve the download link for the main OptiFine file</string>
     <string name="download_install_error_jvm_crash">An exception occurred during installation, exit code: %s</string>
+    <string name="download_install_error_process_start">The system refused to create the installation process. This is usually caused by insufficient memory or background restrictions on the device. Please close background apps and retry, or force-stop the launcher and reopen it.</string>
     <string name="download_install_error_download_failed">Some files failed to download, possibly due to network issues.</string>
     <string name="download_install_success_title">Installation Successful</string>
     <string name="download_install_success_message">Your game has been successfully installed!</string>
@@ -310,6 +315,13 @@
     <string name="download_assets_filter_sort_by_recently_created">Recently Created</string>
     <string name="download_assets_filter_sort_by_recently_updated">Recently Updated</string>
     <string name="download_assets_result_authors">By %s</string>
+    <string name="favorite_add">Favorite</string>
+    <string name="favorite_added">Favorited</string>
+    <string name="favorites_empty">No favorites yet. Go search and favorite the resources you like!</string>
+    <string name="favorites_empty_filtered">No favorites match the current filters</string>
+    <string name="favorites_item_unavailable">Unavailable</string>
+    <string name="favorites_sort_follow_time">Follow Time</string>
+    <string name="favorites_sort_title">Project Name</string>
     <string name="download_assets_result_previous_page">Previous Page</string>
     <string name="download_assets_result_next_page">Next Page</string>
     <string name="download_assets_failed_to_get_result">Failed to get search results: %s. Tap to retry.</string>
@@ -337,6 +349,8 @@
     <string name="download_assets_install_progress_downloading">Downloading and installing assets\n%1$s\n (%2$s / %3$s)</string>
     <string name="download_assets_install_progress_installing">Installing assets\n%s</string>
     <string name="download_assets_install_failed">Failed to install assets!</string>
+    <string name="download_assets_dependency_no_compatible_version">No compatible version was found for dependency %s</string>
+    <string name="download_assets_dependency_project_unavailable">Project information is unavailable</string>
     <string name="download_assets_id_holder">Project ID</string>
     <string name="download_assets_id_tip">Quickly get the corresponding project by project ID</string>
     <string name="download_assets_id_not_found">Project not found!</string>
@@ -483,7 +497,11 @@
     <string name="game_menu_option_force_close_text">Forcing the currently running game to close may cause save data corruption or prevent settings from being saved. Avoid this action unless necessary.</string>
     <string name="game_menu_option_switch_log">Log Output</string>
     <string name="game_menu_option_input_method">Switch Input Method</string>
+    <string name="game_menu_option_auto_show_ime">Auto-show Input Method (SDL)</string>
     <string name="game_menu_option_switch_fps">FPS Display</string>
+    <string name="game_menu_option_fps_display_mode">FPS Display Mode</string>
+    <string name="game_menu_option_fps_display_mode_number">Number</string>
+    <string name="game_menu_option_fps_display_mode_chart">Chart</string>
     <string name="game_menu_option_switch_memory">Memory Display</string>
     <string name="game_menu_option_fps_settings">FPS Settings</string>
     <string name="game_menu_option_ram_settings">RAM Settings</string>
@@ -522,12 +540,18 @@
     <string name="game_vulkan_check_text">Check whether your device supports running Minecraft 26.2+ with Vulkan. Results are for reference only.</string>
     <string name="game_vulkan_check_version">Vulkan version: %s</string>
     <string name="game_vulkan_check_turnip">Using Turnip: %s</string>
-    <string name="game_vulkan_check_extensions">Required extensions:</string>
-    <string name="game_vulkan_check_missing_extensions">Missing extensions:</string>
-    <string name="game_vulkan_check_features">Required features:</string>
-    <string name="game_vulkan_check_missing_features">Missing features:</string>
-    <string name="game_vulkan_check_unsupp">Your device does not support running Minecraft 26.2+ with Vulkan</string>
-    <string name="game_vulkan_check_supp">Your device supports running Minecraft 26.2+ with Vulkan</string>
+    <string name="game_vulkan_check_versions">Version support:</string>
+    <string name="game_vulkan_check_profile_supp">Supported</string>
+    <string name="game_vulkan_check_profile_unsupp">Unsupported</string>
+    <string name="game_vulkan_check_dep_required">Required:</string>
+    <string name="game_vulkan_check_dep_optional">Optional:</string>
+    <string name="game_vulkan_check_item_missing">" (missing)"</string>
+    <string name="game_vulkan_check_failed">Unable to retrieve the Vulkan capabilities of this device</string>
+    <string name="game_vulkan_check_partial">Your device can only run some Minecraft versions with Vulkan:</string>
+    <string name="game_vulkan_check_extensions">Extensions:</string>
+    <string name="game_vulkan_check_features">Features:</string>
+    <string name="game_vulkan_check_unsupp">Your device does not support running any Minecraft version with Vulkan</string>
+    <string name="game_vulkan_check_supp">Your device can run Minecraft %s and later with Vulkan</string>
     <!-- Renderers -->
     <string name="renderer_version_support">MC Version Support:</string>
     <string name="renderer_version_unsupported_warning">The current renderer %s does not support this game version. Continuing to use it may cause rendering errors or crashes! Are you sure you want to proceed?</string>
@@ -556,6 +580,14 @@
     <string name="account_logging_blocked_ip">The current IP address has been blocked from logging in.</string>
     <string name="account_logging_profile_not_exists">Please create a Minecraft player profile first, then try logging in again!</string>
     <string name="account_logging_not_purchased_minecraft">Minecraft ownership not verified. Please purchase it from Minecraft\'s official website.</string>
+    <string name="account_relogin_title">Sign In Required</string>
+    <string name="account_relogin_microsoft_message">The launcher failed to refresh this Microsoft account\'s sign-in credentials. The password may have been changed or the authorization has been revoked, so you need to sign in to the Microsoft account again.</string>
+    <string name="account_relogin_password_message">The auth server rejected the current sign-in, possibly because the password has been changed. Please enter the password of %s again.</string>
+    <string name="account_relogin">Sign In Again</string>
+    <string name="account_refresh_failed_title">Account Refresh Failed</string>
+    <string name="account_refresh_failed_skip_message">Unable to reach the authentication server. You can skip the refresh and launch with the current credentials, but servers that require online authentication may reject the login.</string>
+    <string name="account_refresh_failed_skip">Skip Refresh</string>
+    <string name="account_refresh_failed_retry">Refresh Again</string>
     <string name="account_type_microsoft">Microsoft</string>
     <string name="account_type_local">Offline</string>
     <string name="account_type_ely_by">Ely.by</string>
@@ -568,6 +600,7 @@
     <string name="account_label_email">Email or Username</string>
     <string name="account_label_password">Password</string>
     <string name="account_change_skin">Change Skin</string>
+    <string name="account_wardrobe">Wardrobe</string>
     <string name="account_change_skin_arm_style">Arm Style</string>
     <string name="account_change_skin_arm_wide">Wide Arms</string>
     <string name="account_change_skin_arm_slim">Slim Arms</string>
@@ -632,7 +665,6 @@
     <string name="account_local_uuid_tip_4">This option is intended for advanced users and usually does not need to be adjusted.</string>
     <string name="account_local_uuid_invalid">Invalid UUID Format</string>
     <string name="account_local_uuid_copy">Copy UUID</string>
-    <string name="account_local_uuid_copied">Copied UUID of Account %s</string>
     <string name="account_other_login_baseurl_not_set">Base URL not set</string>
     <string name="account_other_login_getting_full_url">Resolving URL</string>
     <string name="account_other_login_getting_server_info">Fetching server info</string>
@@ -675,6 +707,9 @@
     <string name="cape_name_zombie_horse">Zombie Horse</string>
     <string name="cape_name_builder">Builder</string>
     <string name="cape_name_crafter">Crafter</string>
+    <string name="cape_name_twisted">Twisted</string>
+    <string name="cape_name_hero">Hero</string>
+    <string name="cape_name_aurora">Aurora</string>
     <!-- File Management -->
     <string name="files_back_to_parent">Back...</string>
     <string name="files_create_dir">Create Folder</string>
@@ -812,6 +847,18 @@
     <string name="versions_manage_category_modloader">Moddable</string>
     <string name="versions_manage_pin">Pin</string>
     <string name="versions_manage_install_exists">Version name already exists!</string>
+    <string name="versions_modify_version">Modify Version</string>
+    <string name="versions_modify_start">Start Modify</string>
+    <string name="versions_modify_select_mc">Select Minecraft Version</string>
+    <string name="versions_modify_name_tip">You can rename this version here</string>
+    <string name="versions_modify_mc_changed_title">The Minecraft version has changed</string>
+    <string name="versions_modify_mc_changed_tip">Some mod loaders may not support this version; you can reselect the loaders for the new version.</string>
+    <string name="versions_modify_unrecognized_title">Installed components below cannot be matched automatically (possibly incompatible with the selected loaders) and will be kept as-is unless a new version is selected</string>
+    <string name="versions_modify_confirm_message">The following changes will be applied to the version:</string>
+    <string name="versions_modify_diff_remove">Remove %s</string>
+    <string name="versions_modify_diff_install">Install %1$s %2$s</string>
+    <string name="versions_modify_success">Version modified successfully!</string>
+    <string name="versions_modify_error_message">An error occurred while modifying the version:</string>
     <string name="versions_manage_invalid">Invalid version</string>
     <string name="versions_manage_mod_updates">%d mod updates</string>
     <string name="versions_manage_add_shortcut">Add to Home Screen</string>
@@ -864,7 +911,6 @@
     <string name="versions_overview_screenshot_folder">Screenshot Folder</string>
     <string name="versions_overview_logs_folder">Log Folder</string>
     <string name="versions_overview_crash_report_folder">Crash Report Folder</string>
-    <string name="versions_overview_cant_share_folder_message">No third-party app is available on this device to open this folder!</string>
     <string name="versions_overview_log">Running Log</string>
     <string name="versions_config_version_settings">Version-Specific Settings</string>
     <string name="versions_config_game_settings">Game-Specific Settings</string>
@@ -886,15 +932,6 @@
     <string name="versions_config_failed_to_save">Failed to save version configuration</string>
     <string name="versions_config_microphone_check_title">Check Microphone</string>
     <string name="versions_config_microphone_check_summary">Check whether the system microphone is available or confirm that the launcher has been granted microphone permission. This check ensures that you can use mods like Simple Voice Chat that require a microphone.</string>
-    <string name="versions_install_loader">Install Loader</string>
-    <string name="versions_update_loader">Update Loader</string>
-    <string name="versions_update_loader_waiting_for_others">Waiting for other tasks to finish</string>
-    <string name="versions_update_loader_diff_message">Are you sure you want to change the current game\'s loader?</string>
-    <string name="versions_update_loader_diff_change">Change: %1$s %2$s → %3$s</string>
-    <string name="versions_update_loader_diff_remove">Remove: %s</string>
-    <string name="versions_update_loader_diff_load">Load: %1$s %2$s</string>
-    <string name="versions_update_loader_error_message">An error occurred while installing the loader:</string>
-    <string name="versions_update_loader_success_message">The game\'s loader version has been successfully updated!</string>
     <string name="versions_export">Export Modpack</string>
     <string name="versions_export_type_mcbbs">MCBBS Modpack</string>
     <string name="versions_export_type_mcbbs_summary">Can be imported by %s, HMCL, and other launchers</string>
@@ -915,7 +952,7 @@
     <string name="versions_export_pack_author">Modpack Author</string>
     <string name="versions_export_pack_summary">Modpack Description</string>
     <string name="versions_export_pack_summary_hint">Describe your modpack or write changelogs (Markdown supported)</string>
-    <string name="versions_export_pack_jvm_args">Game Arguments</string>
+    <string name="versions_export_pack_game_args">Game Arguments</string>
     <string name="versions_export_pack_java_args">Java Virtual Machine Arguments</string>
     <string name="versions_export_pack_website">Modpack Website</string>
     <string name="versions_export_pack_min_memory">Minimum Allocated Memory</string>
@@ -968,7 +1005,6 @@
     <string name="mods_update_task_loading">Syncing mod data: %s</string>
     <string name="mods_update_no_mods_update">All mods are already up to date, no update needed</string>
     <string name="mods_update_updating">Updating all mods (%1$d/%2$d, %3$s)</string>
-    <string name="mods_update_updating_retry">Retrying update for all mods (%1$d/%2$d, %3$s)</string>
     <string name="mods_update_success">Update Successful</string>
     <string name="mods_update_success_text">All selected mods have been updated to the latest version!</string>
     <string name="mods_update_failed">Mod Update Failed</string>
@@ -992,6 +1028,7 @@
     <string name="saves_manage_allow_commands">Allow Commands</string>
     <string name="saves_manage_world_seed">World Seed: %s</string>
     <string name="saves_manage_exists">Save with this name exists</string>
+    <string name="saves_manage_playtime">Play Time: %s</string>
     <string name="saves_manage_save_name">Save Name</string>
     <string name="saves_manage_backup">Backup Save</string>
     <string name="saves_manage_delete_warning">Are you sure you want to delete the save file %s? This action cannot be undone!</string>
@@ -1021,7 +1058,6 @@
     <string name="screenshots_manage_no_screenshots">No screenshots for this version</string>
     <string name="screenshots_manage_export">Export</string>
     <string name="screenshots_manage_export_title">Export Screenshots</string>
-    <string name="screenshots_manage_export_success">Export completed</string>
     <string name="screenshots_manage_export_failed">Export failed</string>
     <string name="screenshots_manage_export_all_message">Export all screenshots to the system gallery?</string>
     <string name="screenshots_manage_export_selected_message">Export %1$d selected screenshots to the system gallery?</string>
@@ -1038,15 +1074,18 @@
     <string name="servers_list_delete_server_text">Are you sure you want to delete server %s?</string>
     <string name="servers_list_edit_server">Edit Server</string>
     <string name="servers_list_copy_server_address">Copy Address</string>
+    <!-- Server card -->
+    <string name="home_server_card_settings">Server Card Settings</string>
+    <string name="home_server_card_quick_launch">Quick launch button</string>
+    <string name="home_server_card_version_current">Current selected version</string>
+    <string name="home_server_card_version_specific">Specific version</string>
+    <string name="home_server_card_refresh_failed">Failed to refresh server info</string>
     <!-- Game -->
     <string name="minecraft_download_stat_download_task">Preparing downloads</string>
     <string name="minecraft_download_stat_verify_task">Preparing verifications</string>
     <string name="minecraft_download_downloading_game_files">Downloading files \n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_verifying_and_repairing_files">Verifying files \n(%1$d/%2$d, %3$s/%4$s)</string>
-    <string name="minecraft_download_progress_retry_downloading_files">Retrying downloads \n(%1$d/%2$d, %3$s/%4$s)</string>
-    <string name="minecraft_download_progress_retry_verifying_files">Retrying verifications \n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_failed">An error occurred while downloading Minecraft</string>
-    <string name="minecraft_download_failed_retried">The launcher already attempted one retry, but some tasks still failed to download</string>
     <string name="minecraft_download_failed_notfound">Some dependency files could not be downloaded. If the issue persists after multiple attempts, the game may be missing required libraries. We recommend reinstalling the game.</string>
     <!-- Settings -->
     <string name="settings_title_blur">Blur Effect</string>
@@ -1068,10 +1107,18 @@
     <string name="settings_renderer_from_plugins">From %s plugin</string>
     <string name="settings_renderer_resolution_scale_title">Resolution Scale</string>
     <string name="settings_renderer_resolution_scale_summary">Lower values improve performance; higher values enhance graphics quality. Adjust according to your needs</string>
+    <string name="settings_renderer_resolution_rule_title">Resolution Rule</string>
+    <string name="settings_renderer_resolution_rule_summary">Choose how the game window resolution is calculated</string>
+    <string name="settings_renderer_resolution_rule_percentage">Percentage</string>
+    <string name="settings_renderer_resolution_custom_summary">Render the game at an exact width and height; the picture is scaled to fit the screen</string>
+    <string name="settings_renderer_resolution_custom_width">Width</string>
+    <string name="settings_renderer_resolution_custom_height">Height</string>
     <string name="settings_renderer_full_screen_title">Game Fullscreen</string>
     <string name="settings_renderer_full_screen_summary">Enable fullscreen mode, ignoring safe areas like notches and punch-holes</string>
     <string name="settings_renderer_sustained_performance_title">Sustained Performance Mode</string>
     <string name="settings_renderer_sustained_performance_summary">When enabled, the system provides more stable performance for the game, suitable for long play sessions, but may slightly reduce device responsiveness to prevent overheating</string>
+    <string name="settings_renderer_max_refresh_rate_title">Request Max Refresh Rate</string>
+    <string name="settings_renderer_max_refresh_rate_summary">Request the display to switch to the highest refresh rate supported at the current resolution, lifting the frame rate cap on some devices</string>
     <string name="settings_renderer_shader_dump_title">Shader Logging</string>
     <string name="settings_renderer_shader_dump_summary">Output the converted shader code during game runtime to a log file for easier debugging and graphics rendering analysis</string>
     <string name="sidebar_shortcut_menu">Shortcut Menu</string>
@@ -1128,6 +1175,8 @@
     <string name="settings_game_graphics_api_default_opengl">Only set to OpenGL on first launch</string>
     <string name="settings_game_jvm_args_title">JVM Arguments</string>
     <string name="settings_game_jvm_args_summary">Additional JVM arguments added when starting the JVM. Modifying these without proper knowledge is not recommended, as it may cause crashes</string>
+    <string name="versions_config_game_args_title">Game Arguments</string>
+    <string name="versions_config_game_args_summary">Additional arguments passed to the game, appended after the version game arguments</string>
     <string name="settings_game_show_log_automatic_title">Automatically Show Logs</string>
     <string name="settings_game_show_log_automatic_summary">Automatically show logs before the game officially renders the screen</string>
     <string name="settings_game_log_text_size_title">Log Font Size</string>
@@ -1176,7 +1225,7 @@
     <string name="settings_control_mouse_long_press_delay_title">Long Press Delay</string>
     <string name="settings_control_mouse_long_press_delay_summary">Set the delay time for recognizing a long press on the screen (does not affect physical mouse long presses, even when physical mouse control is disabled)</string>
     <string name="settings_control_gesture_control_title">Gesture Controls</string>
-    <string name="settings_control_gesture_control_summary">Supports interactions in-game through gestures like tap and long press, similar to the Bedrock Edition</string>
+    <string name="settings_control_gesture_control_summary">Supports interactions in-game through gestures like tap, long press, and two-finger swipe scrolling, similar to the Bedrock Edition</string>
     <string name="settings_control_gesture_tap_action_title">Tap Action Type</string>
     <string name="settings_control_gesture_tap_action_summary">Select the mouse button action to trigger on a screen tap</string>
     <string name="settings_control_gesture_long_press_action_title">Long Press Action Type</string>
@@ -1200,6 +1249,13 @@
     <string name="settings_control_gyroscope_invert_y_summary">When enabled, rotating the device up or down will control the camera in the opposite direction</string>
     <string name="settings_gamepad_title">Gamepad Control</string>
     <string name="settings_gamepad_summary">Enable or disable gamepad control. If another device is mistakenly recognized as a gamepad, please turn off this option.</string>
+    <string name="settings_gamepad_input_mode_title">Gamepad Input Mode</string>
+    <string name="settings_gamepad_input_mode_mapped">Mapped (Virtual Keys)</string>
+    <string name="settings_gamepad_input_mode_mapped_summary">Gamepad buttons and joysticks act as virtual keyboard and mouse</string>
+    <string name="settings_gamepad_input_mode_sdl">SDL Direct</string>
+    <string name="settings_gamepad_input_mode_sdl_summary">Raw gamepad input is delivered to the game via the SDL/GLFW gamepad API; button remapping is bypassed</string>
+    <string name="gamepad_mode_prompt_description">Gamepad input detected. The launcher supports two gamepad input modes; please choose the one you want to use.</string>
+    <string name="gamepad_mode_prompt_hint">You can change this later in the "Gamepad" tab of the in-game menu or in the launcher settings.</string>
     <string name="settings_gamepad_deadzone_title">Gamepad Deadzone Scaling</string>
     <string name="settings_gamepad_deadzone_summary">Set the ratio of the joystick\'s non-responsive center area</string>
     <string name="settings_gamepad_joystick_mode_title">Joystick Operation Mode</string>
@@ -1279,17 +1335,6 @@
     <string name="settings_launcher_background_blur_summary">Adjust the background blur effect. This option consumes significant performance.</string>
     <string name="settings_launcher_festivals_effects_title">Festival Easter Eggs</string>
     <string name="settings_launcher_festivals_effects_summary">Display persistent easter egg effects during specific time periods</string>
-    <string name="settings_launcher_home_page_title">Home Page</string>
-    <string name="settings_launcher_home_page_type_blank">Blank</string>
-    <string name="settings_launcher_home_page_type_local">Load from Local</string>
-    <string name="settings_launcher_home_page_type_url">Load from URL</string>
-    <string name="settings_launcher_home_page_type_local_tip">Edit the launcher\'s local home page file. The launcher uses an extended Markdown syntax to describe the home page. After editing, click Refresh to reload the home page.</string>
-    <string name="settings_launcher_home_page_type_local_gen_doc">Generate Document</string>
-    <string name="settings_launcher_home_page_type_local_gen_doc_exists">A home page file already exists. Are you sure you want to overwrite the existing home page and regenerate the official documentation home page?</string>
-    <string name="settings_launcher_home_page_type_url_tip">Fetch the launcher home page file from the specified link and cache it, then periodically refresh and reload the home page</string>
-    <string name="settings_launcher_home_page_type_warning">Custom home pages are third-party content. The launcher does not provide any guarantee for their content. Please be cautious when accepting unfamiliar home pages!</string>
-    <string name="settings_launcher_home_page_url">Home Page Download URL:</string>
-    <string name="settings_launcher_home_page_loading">Loading Home Page</string>
     <!--  Control  -->
     <string name="control_keyboard_bind_title">Bind Key</string>
     <string name="control_keyboard_bind_summary">Press the key you want to bind on your keyboard</string>
@@ -1532,6 +1577,8 @@
     <string name="vibrate_kind_tick">Tick</string>
     <string name="festivals_new_year">Happy New Year!</string>
     <string name="festivals_april_fools">Happy April Fools\' Day!</string>
+    <string name="festivals_halloween">Happy Halloween!</string>
+    <string name="festivals_valentines">Happy Valentine\'s Day!</string>
     <string name="festivals_christmas">Merry Christmas!</string>
     <!-- Custom Cape Upload -->
     <string name="account_change_cape_upload">Upload Cape from Gallery</string>

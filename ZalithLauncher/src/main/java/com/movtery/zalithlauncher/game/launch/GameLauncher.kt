@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.IntSize
 import com.movtery.zalithlauncher.BuildConfig
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.ZLApplication
-import com.movtery.zalithlauncher.bridge.LoggerBridge.append
+import com.movtery.zalithlauncher.bridge.LoggerBridge.appendInfo
 import com.movtery.zalithlauncher.bridge.LoggerBridge.appendTitle
 import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.context.readAssetFile
@@ -38,7 +38,7 @@ import com.movtery.zalithlauncher.game.addons.modloader.ModLoader
 import com.movtery.zalithlauncher.game.download.game.parseLibraryComponents
 import com.movtery.zalithlauncher.game.multirt.Runtime
 import com.movtery.zalithlauncher.game.multirt.RuntimesManager
-import com.movtery.zalithlauncher.game.path.GamePathManager
+import com.movtery.zalithlauncher.game.plugin.Plugin
 import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.game.plugin.renderer.RendererPluginManager
 import com.movtery.zalithlauncher.game.renderer.Renderers
@@ -47,7 +47,6 @@ import com.movtery.zalithlauncher.game.renderer.renderers.NGGL4ESRenderer
 import com.movtery.zalithlauncher.game.support.touch_controller.ControllerProxy
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionInfoParser
-import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.versioninfo.models.GameManifest
 import com.movtery.zalithlauncher.path.LibPath
 import com.movtery.zalithlauncher.path.PathManager
@@ -108,10 +107,16 @@ class GameLauncher(
         val manifest = GSON.fromJson(File(version.getVersionPath(), "${version.getVersionName()}.json").readText(), GameManifest::class.java)
         val clientJar = manifest.inheritsFrom?.let { inheritsFrom ->
             //FIXME: 依赖的是一个原版ID的版本，但这个版本可能是用户自行安装的，只是版本名称与ID一致，不保证客户端真的是对应版本
-            VersionsManager.getVersion(inheritsFrom)?.getClientJar()
+            version.getInheritedClientJar(inheritsFrom)
         } ?: version.getClientJar()
 
-        gameManifest = VersionInfoParser(version)
+        gameManifest = version.launchManifest?.let { json ->
+            runCatching {
+                GSON.fromJson(json, GameManifest::class.java)
+            }.onFailure {
+                Logger.warning(TAG, "Failed to parse the carried launch manifest", it)
+            }.getOrNull()
+        } ?: VersionInfoParser(version)
             .setManifest(manifest)
             .setInheriting()
             .build()
@@ -126,6 +131,12 @@ class GameLauncher(
         }?.takeIf { it.exists() }
 
         CallbackBridge.nativeSetUseInputStackQueue(gameManifest.arguments != null)
+        //Cleanroom 的 LWJGLXX 桥需要字符事件补全暂存的按键事件，见 CallbackBridge.setControlKeyCharPairing
+        CallbackBridge.setControlKeyCharPairing(
+            version.getVersionInfo()?.loaderInfos?.any { info ->
+                info.loader == ModLoader.CLEANROOM
+            } == true
+        )
 
         val customArgs = version.getJvmArgs().takeIf { it.isNotBlank() } ?: AllSettings.jvmArgs.getValue()
         val javaRuntime = getRuntime()
@@ -134,6 +145,8 @@ class GameLauncher(
             javaArguments = customArgs.takeIf { it.isNotEmpty() } ?: "NONE",
             javaRuntime = javaRuntime,
         )
+
+        initLwjglComponent(activity, detectLwjglVersion(gameManifest))
 
         return launchGame(
             screenSize = screenSize,
@@ -147,7 +160,7 @@ class GameLauncher(
         val versionInfo = version.getVersionInfo()
         //Fix Forge 1.7.2
         val is172 = (versionInfo?.minecraftVersion ?: "0.0").isEqualTo("1.7.2")
-        if (is172 && (versionInfo?.loaderInfo?.loader == ModLoader.FORGE)) {
+        if (is172 && versionInfo?.hasLoader(ModLoader.FORGE) == true) {
             Logger.debug(TAG, "Is Forge 1.7.2, use the patched sorting method.")
             put("sort.patch", "true")
         }
@@ -163,17 +176,20 @@ class GameLauncher(
         return version.getGameDir().absolutePath
     }
 
-    override fun getLogFile(): File = VersionsManager.getLatestLog(version)
+    override fun getMinecraftPath(): String = version.getGameHome()
+
+    override fun getLogFile(): File = version.getLatestLog()
 
     override fun initEnv(screenSize: IntSize): MutableMap<String, String> {
         val envMap = super.initEnv(screenSize)
 
-        DriverPluginManager.setDriverById(version.getDriver())
-        envMap["DRIVER_PATH"] = DriverPluginManager.getDriver().path
+        envMap["DRIVER_PATH"] = DriverPluginManager.getDriver(version.getDriver()).path
 
         checkAndUsedJSPH(envMap, runtime)
-        version.getVersionInfo()?.loaderInfo?.getLoaderEnvKey()?.let { loaderKey ->
-            envMap[loaderKey] = "1"
+        version.getVersionInfo()?.loaderInfos?.forEach { info ->
+            info.getLoaderEnvKey()?.let { loaderKey ->
+                envMap[loaderKey] = "1"
+            }
         }
         if (Renderers.isCurrentRendererValid()) {
             setRendererEnv(envMap)
@@ -182,6 +198,14 @@ class GameLauncher(
         val mcVer = version.getVersionInfo()?.minecraftVersion
         if (mcVer != null && isPre16Version(mcVer)) {
             envMap["ALSOFT_LOGLEVEL"] = "3"
+        }
+
+        //lwjgl3ify 实例：注入 XDG 数据目录兜底，避免其向不存在的 ~/.local/share
+        //写桌面快捷方式时抛出异常杀死 RFB 主线程，导致游戏静默退出
+        if (File(version.getGameDir(), "config/lwjgl3ify.cfg").isFile()) {
+            val xdgDataHome = File(version.getGameDir(), ".local/share")
+            if (!xdgDataHome.isDirectory) xdgDataHome.mkdirs()
+            envMap["XDG_DATA_HOME"] = xdgDataHome.absolutePath
         }
 
         return envMap
@@ -214,7 +238,7 @@ class GameLauncher(
             }
         }
 
-        val rendererLib = loadGraphicsLibrary() ?: return
+        val rendererLib = getRendererLibrary() ?: return
         if (!ZLBridge.dlopen(rendererLib) && !ZLBridge.dlopen(findInLdLibPath(rendererLib))) {
             Logger.error(TAG, "Failed to load renderer $rendererLib")
         }
@@ -223,7 +247,7 @@ class GameLauncher(
     override fun progressFinalUserArgs(args: MutableList<String>, ramAllocation: Int) {
         super.progressFinalUserArgs(args, version.getRamAllocation(activity))
         if (Renderers.isCurrentRendererValid()) {
-            args.add("-Dorg.lwjgl.opengl.libname=${loadGraphicsLibrary()}")
+            args.add("-Dorg.lwjgl.opengl.libname=${getRendererLibrary()}")
         }
 
         if (args.none { it.startsWith("-Djava.library.path=") }) {
@@ -260,6 +284,7 @@ class GameLauncher(
             version = version,
             clientJar = clientJar,
             gameManifest = gameManifest,
+            lwjglVersion = lwjglVersion,
             runtime = runtime,
             readAssetsFile = { path -> activity.readAssetFile(path) },
             getCacioJavaArgs = { isJava8 ->
@@ -272,7 +297,7 @@ class GameLauncher(
         return launchJvm(
             context = activity,
             jvmArgs = launchArgs,
-            userHome = GamePathManager.getCurrentPath(),
+            userHome = version.getGameHome(),
             userArgs = customArgs,
             screenSize = screenSize
         )
@@ -304,20 +329,20 @@ class GameLauncher(
         val renderer = Renderers.getCurrentRenderer()
 
         appendTitle("Launch Minecraft")
-        append("▷ Launcher version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-        append("▷ Architecture: ${Architecture.archAsString(ZLApplication.DEVICE_ARCHITECTURE)}")
-        append("▷ Device model: ${Build.MANUFACTURER}, ${Build.MODEL}")
-        append("▷ API version: ${Build.VERSION.SDK_INT}")
-        append("▷ Renderer: ${renderer.getRendererName()}")
+        appendInfo("Launcher version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        appendInfo("Architecture: ${Architecture.archAsString(ZLApplication.DEVICE_ARCHITECTURE)}")
+        appendInfo("Device model: ${Build.MANUFACTURER}, ${Build.MODEL}")
+        appendInfo("API version: ${Build.VERSION.SDK_INT}")
+        appendInfo("Renderer: ${renderer.getRendererName()}")
         renderer.getRendererSummary()?.let { summary ->
-            append("▷ Renderer Summary: $summary")
+            appendInfo("Renderer Summary: $summary")
         }
-        append("▷ Selected Minecraft version: ${version.getVersionName()}")
-        append("▷ Minecraft Info: $mcInfo")
-        append("▷ Game Path: ${version.getGameDir().absolutePath} (Isolation: ${version.isIsolation()})")
-        append("▷ Custom Java arguments: $javaArguments")
-        append("▷ Java Runtime: $javaRuntime")
-        append("▷ Account: ${usingAccount.username} (${usingAccount.accountType})")
+        appendInfo("Selected Minecraft version: ${version.getVersionName()}")
+        appendInfo("Minecraft Info: $mcInfo")
+        appendInfo("Game Path: ${version.getGameDir().absolutePath} (Isolation: ${version.isIsolation()})")
+        appendInfo("Custom Java arguments: $javaArguments")
+        appendInfo("Java Runtime: $javaRuntime")
+        appendInfo("Account: ${usingAccount.username} (${usingAccount.accountType})")
     }
 
     /**
@@ -333,7 +358,7 @@ class GameLauncher(
         val pickedRuntime = RuntimesManager.loadRuntime(runtime)
 
         if (AllSettings.autoPickJavaRuntime.getValue()) {
-            val loaderInfo = version.getVersionInfo()?.loaderInfo
+            val loaderInfo = version.getVersionInfo()?.primaryLoader
             //开启了自动选择，根据游戏需求的版本做选择
             val targetJavaVersion = when (loaderInfo?.loader) {
                 ModLoader.BABRIC -> 17 //Babric 推荐使用 17
@@ -402,6 +427,9 @@ private fun setRendererEnv(envMap: MutableMap<String, String>) {
     val renderer = Renderers.getCurrentRenderer()
     val rendererId = renderer.getRendererId()
 
+    // SDL 环境变量
+    envMap["SDL_OPENGL_LIBRARY"] = rendererId
+
     if (rendererId.startsWith("opengles2")) {
         envMap["LIBGL_ES"] = "2"
         envMap["LIBGL_MIPMAP"] = "3"
@@ -414,6 +442,14 @@ private fun setRendererEnv(envMap: MutableMap<String, String>) {
 
     renderer.getRendererEGL()?.let { eglName ->
         envMap["POJAVEXEC_EGL"] = eglName
+
+        // 指定 SDL EGL
+        val nativeLibPath = if (renderer is Plugin) {
+            renderer.getNativeLibPath()
+        } else {
+            PathManager.DIR_NATIVE_LIB
+        }
+        envMap["SDL_EGL_LIBRARY"] = "$nativeLibPath/$eglName"
     }
 
     envMap["POJAV_RENDERER"] = rendererId
@@ -428,7 +464,7 @@ private fun setRendererEnv(envMap: MutableMap<String, String>) {
         envMap["force_glsl_extensions_warn"] = "true"
         envMap["allow_higher_compat_version"] = "true"
         envMap["allow_glsl_extension_directive_midshader"] = "true"
-        envMap["LIB_MESA_NAME"] = loadGraphicsLibrary() ?: "null"
+        envMap["LIB_MESA_NAME"] = getRendererLibrary() ?: "null"
     }
 
     if (!envMap.containsKey("LIBGL_ES")) {
@@ -448,12 +484,7 @@ private fun setRendererEnv(envMap: MutableMap<String, String>) {
     }
 }
 
-/**
- * Open the render library in accordance to the settings.
- * It will fallback if it fails to load the library.
- * @return The name of the loaded library
- */
-private fun loadGraphicsLibrary(): String? {
+private fun getRendererLibrary(): String? {
     return if (!Renderers.isCurrentRendererValid()) null
     else Renderers.getCurrentRenderer().getRendererLibrary()
 }

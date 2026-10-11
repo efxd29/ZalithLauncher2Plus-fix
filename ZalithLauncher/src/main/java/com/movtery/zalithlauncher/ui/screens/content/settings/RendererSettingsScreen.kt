@@ -84,11 +84,14 @@ import com.movtery.zalithlauncher.utils.driver.TurnipDownloader
 import com.movtery.zalithlauncher.path.URL_GITHUB_RENDERER_PLUGINS
 import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.setting.enums.ResolutionRule
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.utils.settings.MobileGluesConfig
 import com.movtery.zalithlauncher.ui.components.AnimatedColumn
+import com.movtery.zalithlauncher.ui.components.IntInputField
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
+import com.movtery.zalithlauncher.ui.components.TitleAndSummary
 import com.movtery.zalithlauncher.ui.components.verticalScrollWithBar
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
@@ -101,6 +104,8 @@ import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SettingsCa
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SwitchSettingsCard
 import com.movtery.zalithlauncher.ui.screens.navigateTo
 import com.movtery.zalithlauncher.utils.device.checkVulkanSupport
+import com.movtery.zalithlauncher.utils.ensureCustomResolutionInitialized
+import com.movtery.zalithlauncher.utils.getRealScreenSize
 import com.movtery.zalithlauncher.utils.isAdrenoGPU
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import com.movtery.zalithlauncher.viewmodel.sendDLPlugin
@@ -333,7 +338,7 @@ fun RendererSettingsScreen(
 
                     ListSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
-                        position = CardPosition.Middle,
+                        position = CardPosition.Bottom,
                         unit = AllSettings.graphicsApi,
                         items = GraphicsApi.entries,
                         title = stringResource(R.string.settings_game_graphics_api_title),
@@ -346,17 +351,76 @@ fun RendererSettingsScreen(
                             }
                         }
                     )
+                }
+            }
 
-                    IntSliderSettingsCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        position = CardPosition.Middle,
-                        unit = AllSettings.resolutionRatio,
-                        title = stringResource(R.string.settings_renderer_resolution_scale_title),
-                        summary = stringResource(R.string.settings_renderer_resolution_scale_summary),
-                        valueRange = AllSettings.resolutionRatio.floatRange,
-                        suffix = "%",
-                        fineTuningControl = true
-                    )
+            AnimatedItem(scope) { yOffset ->
+                SettingsCardColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
+                ) {
+                    val context = LocalContext.current
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // 分辨率规则
+                        val resolutionRule = AllSettings.resolutionRule.state
+                        ListSettingsCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            position = CardPosition.Top,
+                            unit = AllSettings.resolutionRule,
+                            items = ResolutionRule.entries,
+                            title = stringResource(R.string.settings_renderer_resolution_rule_title),
+                            summary = stringResource(R.string.settings_renderer_resolution_rule_summary),
+                            getItemText = { stringResource(it.nameRes) },
+                            onValueChange = { rule ->
+                                // 自定义分辨率尚未初始化时，以屏幕真实宽高填充
+                                if (rule == ResolutionRule.CUSTOM) {
+                                    ensureCustomResolutionInitialized(context)
+                                }
+                            }
+                        )
+
+                        // 百分比分辨率
+                        AnimatedVisibility(
+                            visible = resolutionRule == ResolutionRule.PERCENTAGE,
+                            enter = fadeIn(animationSpec = getAnimateTween()) +
+                                    expandVertically(animationSpec = getAnimateTween()),
+                            exit = fadeOut(animationSpec = getAnimateTween()) +
+                                    shrinkVertically(animationSpec = getAnimateTween())
+                        ) {
+                            IntSliderSettingsCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
+                                position = CardPosition.Middle,
+                                unit = AllSettings.resolutionRatio,
+                                title = stringResource(R.string.settings_renderer_resolution_scale_title),
+                                summary = stringResource(R.string.settings_renderer_resolution_scale_summary),
+                                valueRange = AllSettings.resolutionRatio.floatRange,
+                                suffix = "%",
+                                fineTuningControl = true
+                            )
+                        }
+
+                        // 自定义分辨率
+                        AnimatedVisibility(
+                            visible = resolutionRule == ResolutionRule.CUSTOM,
+                            enter = fadeIn(animationSpec = getAnimateTween()) +
+                                    expandVertically(animationSpec = getAnimateTween()),
+                            exit = fadeOut(animationSpec = getAnimateTween()) +
+                                    shrinkVertically(animationSpec = getAnimateTween())
+                        ) {
+                            CustomResolutionSettingsCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
+                                position = CardPosition.Middle
+                            )
+                        }
+                    }
 
                     SwitchSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -541,8 +605,8 @@ fun RendererSummaryLayout(renderer: RendererInterface) {
                 Text(text = summary, style = MaterialTheme.typography.labelSmall)
             }
 
-            val minVer = getMinMCVersion()
-            val maxVer = getMaxMCVersion()
+            val minVer = getDisplayMinMCVersion()
+            val maxVer = getDisplayMaxMCVersion()
 
             if (minVer != null || maxVer != null) {
                 Row(

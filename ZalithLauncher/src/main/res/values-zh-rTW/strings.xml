@@ -48,6 +48,7 @@
     <string name="generic_unspecified">未指定</string>
     <string name="generic_save">儲存</string>
     <string name="generic_saved">已儲存</string>
+    <string name="generic_saving">正在儲存…</string>
     <string name="generic_share">分享</string>
     <string name="generic_copied">已複製</string>
     <string name="generic_no_matching_items">沒有符合條件的項目</string>
@@ -59,7 +60,6 @@
     <string name="page_title_version_manage">管理版本</string>
     <string name="page_title_account_list">帳號列表</string>
     <string name="page_title_select_files">選擇路徑</string>
-    <string name="page_title_home_page_editor">主頁編輯器</string>
     <!--  資料  -->
     <string name="files_browse_folder">瀏覽資料夾</string>
     <string name="files_importing">正在匯入檔案</string>
@@ -67,6 +67,7 @@
     <!--  单位  -->
     <string name="unit_day">天</string>
     <string name="date_format">yyyy \'年\' MM \'月\' dd \'日\' HH:mm:ss</string>
+    <string name="duration_format">%s 天 %s 小時 %s 分鐘</string>
     <!--  啟動器版本  -->
     <string name="launcher_version_debug_warning">您正在使用 %s 的測試版本！此版本可能不穩定，主要用於功能測試與搶先體驗，不建議長期使用！如果您在測試過程中發現任何問題，請透過 GitHub 回報給我們，我們會儘快處理。</string>
     <string name="launcher_version_debug_warning_cant_close">此警告無法關閉</string>
@@ -113,7 +114,6 @@
     <string name="error_network_unreachable">網路無法使用</string>
     <string name="error_connection_failed">無法連線到伺服器</string>
     <string name="error_parse_failed">資料解析失敗</string>
-
     <string name="error_bad_request">(%s) 伺服器無法處理該請求</string>
     <string name="error_unauthorized">(%s) 請檢查登入憑證並重試</string>
     <string name="error_forbidden">(%s) 您沒有權限存取此資源</string>
@@ -139,6 +139,8 @@
     <string name="notification_data_jvm_service_running">正在透過前景服務安裝遊戲中</string>
     <string name="notification_data_terracotta_message">在多人連線的過程中，啟動器會使用前台服務來顯示當前連線狀態，因此需要您開啟通知權限。</string>
     <string name="notification_jvm_running_name">JVM 保活服務</string>
+    <string name="notification_task_service_name">任務保活服務</string>
+    <string name="notification_task_service_running">正在背景下執行任務，請保持啟動器運行</string>
     <!--  麥克風  -->
     <string name="microphone_check_title">檢查麥克風輸入</string>
     <string name="microphone_check_volume">音量：%d</string>
@@ -155,6 +157,7 @@
     <string name="unpack_screen_jna">讓 Minecraft 能直接呼叫作業系統的底層功能</string>
     <!--  主選單  -->
     <string name="main_launch_game">啟動遊戲</string>
+    <string name="launch_check_mods">檢查模組</string>
     <string name="main_task_menu">任務選單</string>
     <!--  下載  -->
     <string name="download_category_game">遊戲</string>
@@ -164,6 +167,7 @@
     <string name="download_category_saves">存檔</string>
     <string name="download_category_shaders">光影包</string>
     <string name="download_category_by_id">搜尋ID</string>
+    <string name="download_category_favorites">收藏</string>
     <string name="download_game_failed_to_get_versions">獲取版本失敗：%s，點擊重試。</string>
     <string name="download_game_type_release">正式版</string>
     <string name="download_game_type_snapshot">快照版</string>
@@ -172,9 +176,6 @@
     <string name="download_game_type_old_alpha">Alpha 版</string>
     <string name="download_game_type_old_beta">Beta 版</string>
     <string name="download_game_version_name">版本名稱</string>
-    <string name="download_game_version_overwrite">將會覆蓋安裝到已存在版本：%s</string>
-    <string name="download_game_version_overwrite_select">覆蓋的版本</string>
-    <string name="download_game_version_overwrite_select_subtitle">選擇要覆蓋的版本，您可以使用這個功能升級/降級目標版本</string>
     <string name="download_game_addon_list_load_error">列表載入錯誤：%s</string>
     <string name="download_game_addon_available">可選擇</string>
     <string name="download_game_addon_unavailable">不可用</string>
@@ -195,6 +196,7 @@
     <string name="download_game_install_base_install">安裝 %s</string>
     <string name="download_game_install_base_installing">正在透過前景服務安裝 %s</string>
     <string name="download_game_install_optifine_fetch_download_url">獲取 OptiFine %s 下載連結</string>
+    <string name="download_install_error_optifine_forge17_incompatible">此 OptiFine（組建 %s）與 Forge 1.17+ 不相容，需要 H1 Pre2（20210924–190833）或更新的版本</string>
     <string name="download_game_install_forgelike_analyse">分析 %s 支援函式庫</string>
     <string name="download_game_install_forgelike_preparing_mapping_file">準備 %s 映射檔案中</string>
     <string name="download_game_install_game_files_progress">安裝遊戲檔案</string>
@@ -203,6 +205,7 @@
     <string name="download_install_error_message">您的遊戲在安裝過程中發生異常：</string>
     <string name="download_install_error_cant_fetch_optifine_download_url">無法獲取 OptiFine 主檔案的下載連結</string>
     <string name="download_install_error_jvm_crash">安裝過程中發生異常，退出代碼：%s</string>
+    <string name="download_install_error_process_start">系統拒絕了安裝程序的建立，通常是裝置記憶體不足或後台限制導致，請關閉背景應用後重試，或強制停止啟動器後重新開啟。</string>
     <string name="download_install_error_download_failed">部分檔案下載失敗，可能是網路問題導致。</string>
     <string name="download_install_success_title">安裝成功</string>
     <string name="download_install_success_message">您的遊戲已順利完成安裝！</string>
@@ -222,6 +225,13 @@
     <string name="download_assets_filter_sort_by_recently_created">最近建立</string>
     <string name="download_assets_filter_sort_by_recently_updated">最近更新</string>
     <string name="download_assets_result_authors">作者：%s</string>
+    <string name="favorite_add">收藏</string>
+    <string name="favorite_added">已收藏</string>
+    <string name="favorites_empty">還沒有收藏的項目，去搜尋並收藏喜歡的資源吧！</string>
+    <string name="favorites_empty_filtered">沒有符合當前過濾條件的收藏項目</string>
+    <string name="favorites_item_unavailable">已失效</string>
+    <string name="favorites_sort_follow_time">收藏時間</string>
+    <string name="favorites_sort_title">項目名稱</string>
     <string name="download_assets_result_previous_page">上一頁</string>
     <string name="download_assets_result_next_page">下一頁</string>
     <string name="download_assets_failed_to_get_result">取得搜尋結果失敗：%s，點擊重試。</string>
@@ -367,7 +377,11 @@
     <string name="game_menu_option_force_close_text">強制關閉正在執行的遊戲可能會導致存檔損壞或設定無法儲存，除非特殊情況請避免此操作。</string>
     <string name="game_menu_option_switch_log">日誌輸出</string>
     <string name="game_menu_option_input_method">切換輸入法</string>
+    <string name="game_menu_option_auto_show_ime">自動喚起輸入法（SDL）</string>
     <string name="game_menu_option_switch_fps">幀率顯示</string>
+    <string name="game_menu_option_fps_display_mode">幀率顯示模式</string>
+    <string name="game_menu_option_fps_display_mode_number">數字</string>
+    <string name="game_menu_option_fps_display_mode_chart">圖表</string>
     <string name="game_menu_option_switch_memory">記憶體顯示</string>
     <string name="game_menu_option_fps_settings">幀率設定</string>
     <string name="game_menu_option_ram_settings">記憶體設定</string>
@@ -404,12 +418,18 @@
     <string name="game_vulkan_check_text">檢查您的裝置是否支援使用 Vulkan 執行 Minecraft 26.2+，結果僅供參考</string>
     <string name="game_vulkan_check_version">Vulkan 版本：%s</string>
     <string name="game_vulkan_check_turnip">使用 Turnip：%s</string>
+    <string name="game_vulkan_check_versions">各版本支援情況：</string>
+    <string name="game_vulkan_check_profile_supp">支援</string>
+    <string name="game_vulkan_check_profile_unsupp">不支援</string>
+    <string name="game_vulkan_check_dep_required">必需：</string>
+    <string name="game_vulkan_check_dep_optional">可選：</string>
+    <string name="game_vulkan_check_item_missing">（缺失）</string>
+    <string name="game_vulkan_check_failed">無法取得裝置的 Vulkan 支援情況</string>
+    <string name="game_vulkan_check_partial">您的裝置僅支援使用 Vulkan 執行部分 Minecraft 版本：</string>
     <string name="game_vulkan_check_extensions">依賴的擴充功能：</string>
-    <string name="game_vulkan_check_missing_extensions">缺少的擴充功能：</string>
     <string name="game_vulkan_check_features">依賴的功能：</string>
-    <string name="game_vulkan_check_missing_features">缺少的功能：</string>
-    <string name="game_vulkan_check_unsupp">您的裝置不支援使用 Vulkan 執行 Minecraft 26.2+</string>
-    <string name="game_vulkan_check_supp">您的裝置可以使用 Vulkan 執行 Minecraft 26.2+</string>
+    <string name="game_vulkan_check_unsupp">您的裝置不支援使用 Vulkan 執行任何 Minecraft 版本</string>
+    <string name="game_vulkan_check_supp">您的裝置可以使用 Vulkan 執行 Minecraft %s 及以上版本</string>
     <!--  渲染器  -->
     <string name="renderer_version_support">MC 版本支援：</string>
     <string name="renderer_version_unsupported_warning">目前渲染器 %s 不支援此遊戲版本，繼續使用可能導致渲染錯誤或遊戲崩潰！您確定要忽略風險並繼續嗎？</string>
@@ -427,6 +447,14 @@
     <string name="account_logging_in_saving">獲取玩家皮膚、儲存帳號資訊</string>
     <string name="account_logging_time_out">網路連線逾時，請檢查網路環境。</string>
     <string name="account_logging_not_purchased_minecraft">未偵測到 Minecraft 購買資訊，請前往 Minecraft 官方網站購買。</string>
+    <string name="account_relogin_title">需要重新登入</string>
+    <string name="account_relogin_microsoft_message">啟動器無法重新整理該 Microsoft 帳號的登入憑證，帳號密碼可能已被修改，或登入授權已失效，需要重新登入 Microsoft 帳號。</string>
+    <string name="account_relogin_password_message">驗證伺服器拒絕了目前登入，密碼可能已被修改，請重新輸入 %s 的密碼。</string>
+    <string name="account_relogin">重新登入</string>
+    <string name="account_refresh_failed_title">帳戶重新整理失敗</string>
+    <string name="account_refresh_failed_skip_message">無法連線驗證伺服器。可以跳過帳戶重新整理，使用目前憑證繼續啟動遊戲，但需要線上驗證的伺服器可能會拒絕本次登入。</string>
+    <string name="account_refresh_failed_skip">跳過重新整理</string>
+    <string name="account_refresh_failed_retry">再次重新整理</string>
     <string name="account_type_microsoft">Microsoft 帳號</string>
     <string name="account_type_local">離線帳號</string>
     <string name="account_add_new_server">新增驗證伺服器</string>
@@ -437,6 +465,7 @@
     <string name="account_label_email">填寫電子郵件或使用者名稱</string>
     <string name="account_label_password">填寫密碼</string>
     <string name="account_change_skin">更換皮膚</string>
+    <string name="account_wardrobe">衣櫥</string>
     <string name="account_change_skin_arm_style">手臂樣式</string>
     <string name="account_change_skin_arm_wide">粗手臂</string>
     <string name="account_change_skin_arm_slim">細手臂</string>
@@ -500,7 +529,6 @@
     <string name="account_local_uuid_tip_4">此選項適用於進階使用者，一般情況下無需調整。</string>
     <string name="account_local_uuid_invalid">無效的 UUID 格式</string>
     <string name="account_local_uuid_copy">複製 UUID</string>
-    <string name="account_local_uuid_copied">已複製帳號 %s 的 UUID</string>
     <string name="account_other_login_baseurl_not_set">未設定基礎 URL</string>
     <string name="account_other_login_getting_full_url">嘗試解析完整 URL 中</string>
     <string name="account_other_login_getting_server_info">獲取伺服器資訊中</string>
@@ -543,6 +571,9 @@
     <string name="cape_name_zombie_horse">殭屍馬披風</string>
     <string name="cape_name_builder">建造者披風</string>
     <string name="cape_name_crafter">工匠披風</string>
+    <string name="cape_name_twisted">扭曲披風</string>
+    <string name="cape_name_hero">英雄披風</string>
+    <string name="cape_name_aurora">極光披風</string>
     <!--  檔案管理  -->
     <string name="files_back_to_parent">返回上一層</string>
     <string name="files_create_dir">建立目錄</string>
@@ -584,7 +615,22 @@
     <string name="versions_manage_category_modloader">可安裝模組</string>
     <string name="versions_manage_pin">置頂</string>
     <string name="versions_manage_install_exists">此名稱的版本已存在！</string>
+    <string name="versions_modify_version">修改版本</string>
+    <string name="versions_modify_start">開始修改</string>
+    <string name="versions_modify_select_mc">選擇 Minecraft 版本</string>
+    <string name="versions_modify_name_tip">此處可修改該版本的名稱</string>
+    <string name="versions_modify_mc_changed_title">Minecraft 版本已變更</string>
+    <string name="versions_modify_mc_changed_tip">部分載入器可能並不支援該版本，可為新版本重新選擇載入器。</string>
+    <string name="versions_modify_unrecognized_title">以下已安裝的元件無法自動匹配（可能與所選載入器不相容），未選擇新版本時將保留原樣</string>
+    <string name="versions_modify_confirm_message">將為該版本套用以下變更：</string>
+    <string name="versions_modify_diff_remove">移除 %s</string>
+    <string name="versions_modify_diff_install">安裝 %1$s %2$s</string>
+    <string name="versions_modify_success">版本修改成功！</string>
+    <string name="versions_modify_error_message">修改版本時發生錯誤：</string>
     <string name="versions_manage_invalid">此版本無效</string>
+    <string name="home_add_version_card">新增卡片至主畫面</string>
+    <string name="home_version_card_deleted">版本已刪除</string>
+    <string name="home_version_card_inaccessible">無法存取遊戲目錄</string>
     <string name="versions_manage_rename_version">重新命名版本</string>
     <string name="versions_manage_copy_version">複製版本</string>
     <string name="versions_manage_copy_version_tip">將目前版本複製為一個新版本，且預設開啟版本隔離。若勾選下方的「複製所有檔案」，則會同時複製目前版本產生的所有檔案（資源包、存檔、遊戲設定等）。</string>
@@ -628,7 +674,6 @@
     <string name="versions_overview_screenshot_folder">螢幕擷圖資料夾</string>
     <string name="versions_overview_logs_folder">日誌資料夾</string>
     <string name="versions_overview_crash_report_folder">崩潰報告資料夾</string>
-    <string name="versions_overview_cant_share_folder_message">目前裝置上沒有可開啟此資料夾的第三方應用程式！</string>
     <string name="versions_overview_log">執行日誌</string>
     <string name="versions_config_version_settings">版本獨立設定</string>
     <string name="versions_config_game_settings">遊戲獨立設定</string>
@@ -650,15 +695,6 @@
     <string name="versions_config_failed_to_save">儲存版本組態時發生異常</string>
     <string name="versions_config_microphone_check_title">檢查麥克風</string>
     <string name="versions_config_microphone_check_summary">檢查系統麥克風是否可用，或確認啟動器是否已獲得麥克風權限。此檢查將確保您可以使用像 Simple Voice Chat 這樣需要使用麥克風的模組。</string>
-    <string name="versions_install_loader">安裝載入器</string>
-    <string name="versions_update_loader">更新載入器</string>
-    <string name="versions_update_loader_waiting_for_others">等待其他項目完成加載</string>
-    <string name="versions_update_loader_diff_message">您確定要變更當前遊戲的載入器嗎？</string>
-    <string name="versions_update_loader_diff_change">變更：%1$s %2$s → %3$s</string>
-    <string name="versions_update_loader_diff_remove">移除：%s</string>
-    <string name="versions_update_loader_diff_load">載入：%1$s %2$s</string>
-    <string name="versions_update_loader_error_message">安裝載入器時出現異常：</string>
-    <string name="versions_update_loader_success_message">已成功變更該遊戲的載入器版本！</string>
     <string name="versions_export">匯出模組包</string>
     <string name="versions_export_type_mcbbs">MCBBS 模組包</string>
     <string name="versions_export_type_mcbbs_summary">可被 %s、HMCL 等啟動器匯入</string>
@@ -679,7 +715,9 @@
     <string name="versions_export_pack_author">模組包作者</string>
     <string name="versions_export_pack_summary">模組包描述</string>
     <string name="versions_export_pack_summary_hint">描述您的模組包，或撰寫更新日誌（支援 Markdown）</string>
-    <string name="versions_export_pack_jvm_args">遊戲參數</string>
+    <string name="versions_export_pack_game_args">遊戲參數</string>
+    <string name="versions_config_game_args_title">遊戲參數</string>
+    <string name="versions_config_game_args_summary">啟動遊戲時，額外傳遞給遊戲的參數，將追加在版本自帶的遊戲參數之後</string>
     <string name="versions_export_pack_java_args">Java 虛擬機參數</string>
     <string name="versions_export_pack_website">模組包官方網站</string>
     <string name="versions_export_pack_min_memory">最小分配記憶體</string>
@@ -731,7 +769,6 @@
     <string name="mods_update_task_loading">同步模組資料：%s</string>
     <string name="mods_update_no_mods_update">所有模組都是最新版本，無需更新</string>
     <string name="mods_update_updating">正在更新所有模組 (%1$d/%2$d, %3$s)</string>
-    <string name="mods_update_updating_retry">重試更新所有模組 (%1$d/%2$d, %3$s)</string>
     <string name="mods_update_success">更新成功</string>
     <string name="mods_update_success_text">您選擇的模組都已更新到最新版本！</string>
     <string name="mods_update_failed">更新模組失敗</string>
@@ -755,6 +792,7 @@
     <string name="saves_manage_allow_commands">允許作弊</string>
     <string name="saves_manage_world_seed">世界種子碼：%s</string>
     <string name="saves_manage_exists">此名稱的存檔已存在</string>
+    <string name="saves_manage_playtime">遊戲時長：%s</string>
     <string name="saves_manage_save_name">存檔名稱</string>
     <string name="saves_manage_backup">備份存檔</string>
     <string name="saves_manage_delete_warning">您確定要刪除存檔 %s 嗎？此操作無法復原！</string>
@@ -768,10 +806,7 @@
     <string name="minecraft_download_stat_verify_task">統計驗證任務</string>
     <string name="minecraft_download_downloading_game_files">下載遊戲檔案中 \n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_verifying_and_repairing_files">驗證並補齊遊戲檔案中 \n(%1$d/%2$d, %3$s/%4$s)</string>
-    <string name="minecraft_download_progress_retry_downloading_files">重試下載遊戲檔案中 \n(%1$d/%2$d, %3$s/%4$s)</string>
-    <string name="minecraft_download_progress_retry_verifying_files">重試驗證並補齊遊戲檔案中 \n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_failed">下載 Minecraft 過程中發生異常</string>
-    <string name="minecraft_download_failed_retried">在此之前，啟動器已嘗試重試一次，但仍有任務下載失敗</string>
     <string name="minecraft_download_failed_notfound">部分依賴檔案無法下載，如果多次嘗試仍失敗，可能是遊戲缺少必要的函式庫檔案，建議重新安裝遊戲。</string>
     <!--  設定  -->
     <string name="settings_title_blur">模糊效果</string>
@@ -793,10 +828,18 @@
     <string name="settings_renderer_from_plugins">來自 %s 外掛程式</string>
     <string name="settings_renderer_resolution_scale_title">遊戲視窗解析度</string>
     <string name="settings_renderer_resolution_scale_summary">數值越低效能越高，數值越高畫質越清晰，請依實際需求調整</string>
+    <string name="settings_renderer_resolution_rule_title">解析度規則</string>
+    <string name="settings_renderer_resolution_rule_summary">選擇遊戲視窗解析度的計算規則</string>
+    <string name="settings_renderer_resolution_rule_percentage">百分比</string>
+    <string name="settings_renderer_resolution_custom_summary">以精確的寬高渲染遊戲，畫面將等比縮放以適應螢幕</string>
+    <string name="settings_renderer_resolution_custom_width">寬度</string>
+    <string name="settings_renderer_resolution_custom_height">高度</string>
     <string name="settings_renderer_full_screen_title">遊戲頁面全螢幕化</string>
     <string name="settings_renderer_full_screen_summary">使遊戲頁面全螢幕化，忽略瀏海螢幕、挖孔螢幕等螢幕的安全區域</string>
     <string name="settings_renderer_sustained_performance_title">啟用持續效能模式</string>
     <string name="settings_renderer_sustained_performance_summary">啟用後，系統會為遊戲提供更穩定的效能輸出，適用於長時間遊玩，但可能略微降低裝置回應速度以防止過熱</string>
+    <string name="settings_renderer_max_refresh_rate_title">請求最高更新率</string>
+    <string name="settings_renderer_max_refresh_rate_summary">請求系統將螢幕切換至目前解析度支援的最高更新率檔位，解除部分裝置的幀率鎖定</string>
     <string name="settings_renderer_shader_dump_title">著色器日誌輸出</string>
     <string name="settings_renderer_shader_dump_summary">將遊戲執行時轉換後的著色器代碼輸出到日誌檔案，便於偵錯或分析圖形渲染過程</string>
     <string name="sidebar_shortcut_menu">快捷選單</string>
@@ -805,8 +848,6 @@
     <string name="settings_renderer_zink_driver_adreno">啟動器偵測到您的裝置為 Adreno GPU，開啟此選項可能會導致 Zink 渲染器無法正常運作，您確定要開啟此選項嗎？</string>
     <string name="settings_renderer_vsync_in_zink_title">啟用 Zink 垂直同步</string>
     <string name="settings_renderer_vsync_in_zink_summary">透過系統介面為 Zink 渲染器啟用垂直同步</string>
-    <string name="settings_renderer_force_big_core_title">強制在高效能核心執行</string>
-    <string name="settings_renderer_force_big_core_summary">將 Minecraft 的渲染執行緒綁定到 CPU 的高效能核心（大核）上，啟用後可能增加功耗與發熱</string>
     <string name="settings_renderer_surface_title">使用 SurfaceView 渲染</string>
     <string name="settings_renderer_surface_summary">使用獨立於介面之外的圖層進行渲染</string>
     <string name="settings_game_version_isolation_title">全域版本隔離</string>
@@ -879,7 +920,7 @@
     <string name="settings_control_mouse_long_press_delay_title">虛擬滑鼠長按觸發延遲</string>
     <string name="settings_control_mouse_long_press_delay_summary">設定螢幕長按辨識的延遲時間（實體滑鼠長按不受此設定影響，包括停用實體滑鼠控制時）</string>
     <string name="settings_control_gesture_control_title">手勢控制</string>
-    <string name="settings_control_gesture_control_summary">支援透過點擊和長按等手勢，在遊戲中進行互動，類似基岩版</string>
+    <string name="settings_control_gesture_control_summary">支援透過點擊、長按以及雙指滑動捲動等手勢，在遊戲中進行互動，類似基岩版</string>
     <string name="settings_control_gesture_tap_action_title">點擊觸發的操作類型</string>
     <string name="settings_control_gesture_tap_action_summary">選擇在輕觸螢幕時應觸發的滑鼠按鍵操作</string>
     <string name="settings_control_gesture_long_press_action_title">長按觸發的操作類型</string>
@@ -903,6 +944,13 @@
     <string name="settings_control_gyroscope_invert_y_summary">啟用後，上下轉動裝置會反向控制視角</string>
     <string name="settings_gamepad_title">手把控制</string>
     <string name="settings_gamepad_summary">啟用或關閉手把控制功能。若您的其他外設被誤識別為手把，請關閉此選項。</string>
+    <string name="settings_gamepad_input_mode_title">手把輸入模式</string>
+    <string name="settings_gamepad_input_mode_mapped">映射（虛擬按鍵）</string>
+    <string name="settings_gamepad_input_mode_mapped_summary">手把按鍵與搖桿作為虛擬鍵盤和滑鼠使用</string>
+    <string name="settings_gamepad_input_mode_sdl">SDL 直通</string>
+    <string name="settings_gamepad_input_mode_sdl_summary">手把輸入經 SDL/GLFW gamepad API 原樣交給遊戲，不經過按鍵映射</string>
+    <string name="gamepad_mode_prompt_description">偵測到手把輸入。啟動器支援兩種手把輸入模式，請選擇您希望使用的模式。</string>
+    <string name="gamepad_mode_prompt_hint">稍後可以在遊戲選單的「手把」分頁或啟動器設定中更改。</string>
     <string name="settings_gamepad_deadzone_title">手把死區縮放</string>
     <string name="settings_gamepad_deadzone_summary">設定搖桿中心無反應區域的比例</string>
     <string name="settings_gamepad_joystick_mode_title">搖桿操作模式</string>
@@ -1027,7 +1075,6 @@
     <string name="screenshots_manage_no_screenshots">目前版本尚無截圖</string>
     <string name="screenshots_manage_export">匯出</string>
     <string name="screenshots_manage_export_title">匯出截圖</string>
-    <string name="screenshots_manage_export_success">匯出完成</string>
     <string name="screenshots_manage_export_failed">匯出失敗</string>
     <string name="screenshots_manage_export_all_message">是否匯出所有圖片到系統相冊？</string>
     <string name="screenshots_manage_export_selected_message">是否匯出選中的 %1$d 張圖片到系統相冊？</string>
@@ -1044,6 +1091,12 @@
     <string name="servers_list_delete_server_text">你確定要刪除伺服器 %s 嗎？</string>
     <string name="servers_list_edit_server">編輯伺服器</string>
     <string name="servers_list_copy_server_address">複製伺服器位址</string>
+    <!--  伺服器卡片  -->
+    <string name="home_server_card_settings">伺服器卡片設定</string>
+    <string name="home_server_card_quick_launch">快速啟動按鈕</string>
+    <string name="home_server_card_version_current">當前選擇版本</string>
+    <string name="home_server_card_version_specific">特定遊戲版本</string>
+    <string name="home_server_card_refresh_failed">重新整理伺服器資訊失敗</string>
     <string name="settings_launcher_animate_extent_title">動畫強度</string>
     <string name="settings_launcher_animate_extent_summary">調整啟動器的動畫強度</string>
     <string name="settings_launcher_log_retention_days_title">日誌保留天數</string>
@@ -1051,12 +1104,11 @@
     <string name="settings_launcher_log_share_title">分享啟動器日誌</string>
     <string name="settings_launcher_log_share_summary">點擊以分享啟動器的日誌文件，以供開發者定位並修復啟動器的問題</string>
     <string name="settings_launcher_log_share_packing">打包啟動器日誌文件</string>
-    <string name="settings_launcher_mirror_modloader_title">模組載入器版本來源</string>
-    <string name="settings_launcher_mirror_file_download_title">檔案下載來源</string>
-    <string name="settings_launcher_mirror_assets_search_title">資源平台搜尋來源</string>
-    <string name="settings_launcher_mirror_assets_download_title">資源平台檔案下載來源</string>
-    <string name="settings_launcher_mirror_official_first">優先使用官方來源</string>
-    <string name="settings_launcher_mirror_mirror_first">優先使用鏡像來源</string>
+    <string name="settings_launcher_mirror_game_source_title">遊戲內容下載源</string>
+    <string name="settings_launcher_mirror_asset_platform_source_title">資源平台下載源</string>
+    <string name="settings_launcher_mirror_auto">自動</string>
+    <string name="settings_launcher_mirror_official">盡量使用官方來源</string>
+    <string name="settings_launcher_mirror_mirror">盡量使用鏡像源</string>
     <string name="settings_launcher_background_title">啟動器背景</string>
     <string name="settings_launcher_background_summary">選擇一張圖片或影片作為啟動器背景</string>
     <string name="settings_launcher_background_importing">正在導入啟動器背景文件</string>
@@ -1068,17 +1120,6 @@
     <string name="settings_launcher_background_blur_summary">調整背景的模糊效果，此選項較為耗費效能</string>
     <string name="settings_launcher_festivals_effects_title">持續型節日彩蛋效果</string>
     <string name="settings_launcher_festivals_effects_summary">在特定時間期間顯示持續型彩蛋效果</string>
-    <string name="settings_launcher_home_page_title">主頁</string>
-    <string name="settings_launcher_home_page_type_blank">空白</string>
-    <string name="settings_launcher_home_page_type_local">從本機載入</string>
-    <string name="settings_launcher_home_page_type_url">從網路載入</string>
-    <string name="settings_launcher_home_page_type_local_tip">編輯啟動器本機的主頁檔案，啟動器使用經過擴充的 Markdown 語法描述主頁，編輯完成後，點擊重新整理以重新載入主頁</string>
-    <string name="settings_launcher_home_page_type_local_gen_doc">生成官方主頁文件</string>
-    <string name="settings_launcher_home_page_type_local_gen_doc_exists">目前已存在主頁檔案，你確定要將已有的主頁覆蓋掉，並重新生成官方文件主頁嗎？</string>
-    <string name="settings_launcher_home_page_type_url_tip">從指定的連結獲取啟動器主頁檔案並快取，定時重新整理以重新載入主頁</string>
-    <string name="settings_launcher_home_page_type_warning">自訂主頁屬於第三方內容，啟動器不對其內容做任何擔保，請謹慎接收不熟悉的主頁！</string>
-    <string name="settings_launcher_home_page_url">主頁下載連結：</string>
-    <string name="settings_launcher_home_page_loading">載入主頁中</string>
     <string name="just_now">現在</string>
     <string name="minutes_ago">%d 分鐘前</string>
     <string name="hours_ago">%d 小時前</string>
@@ -1112,6 +1153,8 @@
     <string name="download_assets_install_progress_downloading">下載並安裝資源\n%1$s\n (%2$s / %3$s)</string>
     <string name="download_assets_install_progress_installing">安裝資源\n%s</string>
     <string name="download_assets_install_failed">安裝資源失敗!</string>
+    <string name="download_assets_dependency_no_compatible_version">依賴 %s 未找到適配的版本</string>
+    <string name="download_assets_dependency_project_unavailable">無法取得依賴專案資訊</string>
     <string name="download_assets_id_holder">專案 ID</string>
     <string name="download_assets_id_tip">根據專案 ID 快速取得對應專案</string>
     <string name="download_assets_id_not_found">未找到該專案！</string>

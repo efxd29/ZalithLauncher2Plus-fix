@@ -57,10 +57,9 @@ import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.scrollbar
+import androidx.compose.material3.nonInteractiveScrollbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,7 +79,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
@@ -106,6 +104,7 @@ import com.movtery.zalithlauncher.ui.components.ScalingActionButton
 import com.movtery.zalithlauncher.ui.components.ScalingLabel
 import com.movtery.zalithlauncher.ui.components.SimpleListDialog
 import com.movtery.zalithlauncher.ui.components.SimpleListItem
+import com.movtery.zalithlauncher.ui.components.SkinPreview3D
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.navigateTo
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountOperation
@@ -117,6 +116,8 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.LoginMenuDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.LoginMenuOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.MicrosoftLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.MicrosoftLoginTipDialog
+import com.movtery.zalithlauncher.ui.screens.content.elements.MicrosoftReloginDialog
+import com.movtery.zalithlauncher.ui.screens.content.elements.OtherAccountReloginDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.OtherLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.OtherServerLoginDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.PlayerFace
@@ -133,6 +134,7 @@ import com.movtery.zalithlauncher.viewmodel.AccountManageViewModel
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
+import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import com.movtery.zalithlauncher.viewmodel.LocalBackgroundViewModel
 import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
 import kotlinx.coroutines.Dispatchers
@@ -181,9 +183,7 @@ enum class FirstLoginMenu {
  * @param backStackViewModel 屏幕堆栈管理器
  * @param backToMainScreen 返回主屏幕的回调
  * @param openLink 外部链接跳转回调
- * @param showToast 展示一个 Toast
  * @param submitError 全局错误提交回调
- * @param viewModel 账号管理 ViewModel (Hilt 自动注入)
  */
 @Composable
 fun AccountManageScreen(
@@ -191,10 +191,13 @@ fun AccountManageScreen(
     backStackViewModel: ScreenBackStackViewModel,
     backToMainScreen: () -> Unit,
     openLink: (url: String) -> Unit,
-    showToast: (AndroidStringText, duration: Int) -> Unit,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
-    viewModel: AccountManageViewModel = hiltViewModel()
+    eventViewModel: EventViewModel
 ) {
+    val viewModel: AccountManageViewModel = hiltViewModel { factory: AccountManageViewModel.Factory ->
+        factory.create(eventViewModel)
+    }
+
     val loginUiState by viewModel.loginUiState.collectAsStateWithLifecycle()
     val profileUiState by viewModel.profileUiState.collectAsStateWithLifecycle()
     val operationUiState by viewModel.operationUiState.collectAsStateWithLifecycle()
@@ -237,10 +240,6 @@ fun AccountManageScreen(
             when (effect) {
                 is AccountManageEffect.ShowError -> {
                     submitError(ErrorViewModel.ThrowableMessage(effect.title, effect.message))
-                }
-
-                is AccountManageEffect.ShowToast -> {
-                    showToast(effect.text, effect.duration)
                 }
             }
         }
@@ -1122,6 +1121,48 @@ private fun AccountOperation(
                     )
                 )
                 actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None))
+            }
+        }
+
+        is AccountOperation.OnRelogin -> {
+            if (operation.account.isMicrosoftAccount()) {
+                MicrosoftReloginDialog(
+                    onDismissRequest = {
+                        actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None))
+                    },
+                    onConfirm = {
+                        actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None))
+                        actions.onIntent(
+                            AccountManageIntent.PerformMicrosoftLogin(
+                                toWeb = actions.navigateToWeb,
+                                backToMain = actions.backToMainScreen,
+                                checkIfInWebScreen = actions.checkIfInWebScreen
+                            )
+                        )
+                    }
+                )
+            } else {
+                OtherAccountReloginDialog(
+                    account = operation.account,
+                    logging = operation.logging,
+                    error = operation.error,
+                    onDismissRequest = {
+                        actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None))
+                    },
+                    onConfirm = { password ->
+                        actions.onIntent(
+                            AccountManageIntent.UpdateAccountOp(
+                                AccountOperation.OnRelogin(operation.account, logging = true)
+                            )
+                        )
+                        actions.onIntent(
+                            AccountManageIntent.ReloginOtherAccount(
+                                account = operation.account,
+                                password = password
+                            )
+                        )
+                    }
+                )
             }
         }
 

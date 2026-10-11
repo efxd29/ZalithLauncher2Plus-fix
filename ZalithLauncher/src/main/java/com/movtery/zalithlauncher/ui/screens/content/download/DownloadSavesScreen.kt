@@ -81,7 +81,7 @@ fun DownloadSavesScreen(
     DownloadSingleOperation(
         operation = operation,
         changeOperation = { operation = it },
-        doInstall = { classes, version, versions ->
+        doInstall = { classes, version, versions, dependencies ->
             downloadSingleForVersions(
                 context = context,
                 version = version,
@@ -102,10 +102,15 @@ fun DownloadSavesScreen(
                 },
                 submitError = submitError
             )
+            downloadDependenciesForVersions(
+                requests = dependencies,
+                versions = versions,
+                submitError = submitError
+            )
         },
-        onDependencyClicked = { dep, classes ->
+        onDependencyClicked = { platform, projectId, classes ->
             backStack.navigateTo(
-                NormalNavKey.DownloadAssets(dep.platform, dep.projectId, classes)
+                NormalNavKey.DownloadAssets(platform, projectId, classes)
             )
         },
         onDownloadAllDependencies = { deps, gameVersions, classes ->

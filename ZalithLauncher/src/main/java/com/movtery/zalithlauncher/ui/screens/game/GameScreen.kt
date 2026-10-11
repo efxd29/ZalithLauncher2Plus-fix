@@ -85,6 +85,8 @@ import com.movtery.zalithlauncher.bridge.ZLNativeInvoker
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender
 import com.movtery.zalithlauncher.game.keycodes.mapToKeycode
 import com.movtery.zalithlauncher.game.launch.handler.GameHandler
+import com.movtery.zalithlauncher.game.sdl.SdlBridge
+import com.movtery.zalithlauncher.game.sdl.SdlTextSender
 import com.movtery.zalithlauncher.game.support.touch_controller.touchControllerInputModifier
 import com.movtery.zalithlauncher.game.support.touch_controller.touchControllerTouchModifier
 import com.movtery.zalithlauncher.game.version.installed.Version
@@ -103,6 +105,7 @@ import com.movtery.zalithlauncher.ui.control.MinecraftHotbar
 import com.movtery.zalithlauncher.ui.control.event.launcherEvent
 import com.movtery.zalithlauncher.ui.control.event.lwjglEvent
 import com.movtery.zalithlauncher.ui.control.gamepad.GamepadKeyListener
+import com.movtery.zalithlauncher.ui.control.gamepad.GamepadOnActionListener
 import com.movtery.zalithlauncher.ui.control.gamepad.GamepadStickMovementListener
 import com.movtery.zalithlauncher.ui.control.gamepad.SimpleGamepadCapture
 import com.movtery.zalithlauncher.ui.control.gyroscope.GyroscopeReader
@@ -113,6 +116,7 @@ import com.movtery.zalithlauncher.ui.control.mouse.SwitchableMouseLayout
 import com.movtery.zalithlauncher.ui.screens.game.elements.DraggableGameBall
 import com.movtery.zalithlauncher.ui.screens.game.elements.ForceCloseOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.GameMenuSubscreen
+import com.movtery.zalithlauncher.ui.screens.game.elements.GamepadModePromptDialog
 import com.movtery.zalithlauncher.ui.screens.game.elements.LogBox
 import com.movtery.zalithlauncher.ui.screens.game.elements.LogState
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
@@ -124,6 +128,7 @@ import com.movtery.zalithlauncher.ui.screens.game.elements.SendKeycodeState
 import com.movtery.zalithlauncher.ui.screens.game.multiplayer.TerracottaOperation
 import com.movtery.zalithlauncher.ui.screens.game.multiplayer.rememberTerracottaViewModel
 import com.movtery.zalithlauncher.ui.screens.main.control_editor.ControlEditor
+import com.movtery.zalithlauncher.utils.currentGameDisplayLayout
 import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.viewmodel.EditorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
@@ -154,6 +159,11 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private const val TAG = "GameScreen"
 
+/** 帧率历史记录的最大时间节点数 */
+private const val FPS_HISTORY_SIZE = 15
+/** 最高/最低帧所在节点被清理后，重算前等待的时间节点数 */
+private const val FPS_RESYNC_NODES = 10
+
 private class GameViewModel(
     private val version: Version,
     private val onChangeTextInputMode: (TextInputMode?) -> Unit
@@ -178,9 +188,29 @@ private class GameViewModel(
     /** 游戏内帧率状态 */
     var gameFps by mutableIntStateOf(0)
         private set
+    /** 帧率历史记录（最多保留最近15个时间节点） */
+    var fpsHistory by mutableStateOf<List<Int>>(emptyList())
+        private set
+    /** 记录范围内的历史最高帧 */
+    var fpsMax by mutableIntStateOf(0)
+        private set
+    /** 记录范围内的历史最低帧 */
+    var fpsMin by mutableIntStateOf(0)
+        private set
+    /** 最高帧重算倒计时（时间节点数），-1 表示无需重算 */
+    private var fpsMaxResyncCountdown = -1
+    /** 最低帧重算倒计时（时间节点数），-1 表示无需重算 */
+    private var fpsMinResyncCountdown = -1
     private var fpsJob: Job? = null
     /** 开始帧率捕获 */
     fun startFpsCapture() {
+        if (fpsJob?.isActive == true) return
+        //新一轮捕获，重置历史记录
+        fpsHistory = emptyList()
+        fpsMax = 0
+        fpsMin = 0
+        fpsMaxResyncCountdown = -1
+        fpsMinResyncCountdown = -1
         //开启一个新的协程，每秒更新一次帧率数据
         fpsJob = viewModelScope.launch(Dispatchers.Default) {
             while (true) {
@@ -189,7 +219,7 @@ private class GameViewModel(
                 }.onFailure {
                     break
                 }
-                gameFps = CallbackBridge.getCurrentFps()
+                recordFps(CallbackBridge.getCurrentFps())
                 delay(1000L.milliseconds)
             }
         }
@@ -198,6 +228,53 @@ private class GameViewModel(
     fun stopFpsCapture() {
         fpsJob?.cancel()
         fpsJob = null
+    }
+
+    /**
+     * 记录一次帧率采样，并维护记录范围内的最高/最低帧。
+     * 被清理的最老节点若恰好是最高/最低帧，不立即重算：
+     * 若之后10个时间节点内没有出现更高/更低的帧，才用当前记录的所有节点重算一次
+     */
+    private fun recordFps(fps: Int) {
+        gameFps = fps
+        //衰减重算倒计时，归零说明等待期内没有出现更高/更低的帧
+        if (fpsMaxResyncCountdown > 0) fpsMaxResyncCountdown--
+        if (fpsMinResyncCountdown > 0) fpsMinResyncCountdown--
+        if (fpsMaxResyncCountdown == 0) {
+            fpsMax = fpsHistory.max()
+            fpsMaxResyncCountdown = -1
+        }
+        if (fpsMinResyncCountdown == 0) {
+            fpsMin = fpsHistory.min()
+            fpsMinResyncCountdown = -1
+        }
+
+        if (fpsHistory.isEmpty()) {
+            fpsMax = fps
+            fpsMin = fps
+        } else {
+            if (fps > fpsMax) {
+                fpsMax = fps
+                fpsMaxResyncCountdown = -1
+            }
+            if (fps < fpsMin) {
+                fpsMin = fps
+                fpsMinResyncCountdown = -1
+            }
+        }
+        fpsHistory = fpsHistory + fps
+
+        //超出最大节点数时清理最老的节点
+        if (fpsHistory.size > FPS_HISTORY_SIZE) {
+            val removed = fpsHistory.first()
+            fpsHistory = fpsHistory.drop(1)
+            if (removed == fpsMax && fpsHistory.none { it == fpsMax }) {
+                fpsMaxResyncCountdown = FPS_RESYNC_NODES
+            }
+            if (removed == fpsMin && fpsHistory.none { it == fpsMin }) {
+                fpsMinResyncCountdown = FPS_RESYNC_NODES
+            }
+        }
     }
 
     var editorRefresh by mutableIntStateOf(0)
@@ -448,9 +525,16 @@ private class GameTextSender(private val scope: CoroutineScope) {
 
     private suspend fun sendMessage(text: String, inGame: Boolean) {
         withContext(Dispatchers.Main) {
+            // 仅 SDL 渲染路径（MC 26.3+）经 SDL 通道提交；仅手柄子系统初始化 SDL 时游戏输入仍走 GLFW 桥
+            val useSdl = SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()
+
             fun sendText() {
                 for (ch in text) {
-                    LWJGLCharSender.sendChar(ch)
+                    if (useSdl) {
+                        SdlTextSender.sendChar(ch)
+                    } else {
+                        LWJGLCharSender.sendChar(ch)
+                    }
                 }
             }
 
@@ -458,11 +542,21 @@ private class GameTextSender(private val scope: CoroutineScope) {
                 //根据options.txt中的配置，找到打开聊天栏的键
                 //如果找不到，则忽略这次事件
                 mapToKeycode(OPEN_CHAT, OPEN_CHAT_VALUE)?.let { openChat ->
-                    CallbackBridge.sendKeyPress(openChat)
-                    delay(50L.milliseconds)
-                    sendText()
-                    delay(50L.milliseconds)
-                    LWJGLCharSender.sendEnter()
+                    if (useSdl) {
+                        SdlTextSender.sendKey(openChat)
+                        // 等待游戏侧激活文本输入通道，未激活就提交的文本会被 SDL 丢弃
+                        if (SdlTextSender.awaitTextInputActive()) {
+                            sendText()
+                            delay(50L.milliseconds)
+                            SdlTextSender.sendEnter()
+                        }
+                    } else {
+                        CallbackBridge.sendKeyPress(openChat)
+                        delay(50L.milliseconds)
+                        sendText()
+                        delay(50L.milliseconds)
+                        LWJGLCharSender.sendEnter()
+                    }
                 }
             } else {
                 //如果当前不在游戏内，则直接发送文本
@@ -525,10 +619,10 @@ fun GameScreen(
         getUserName = getAccountName
     )
 
-    LaunchedEffect(viewModel.isEditingLayout) {
-        val state = viewModel.isEditingLayout
-        //向VMActivity同步状态，编辑控制布局时，不会继续处理按键事件
-        eventViewModel.sendEvent(EventViewModel.Event.Game.KeyHandle(state.not()))
+    LaunchedEffect(viewModel.isEditingLayout, viewModel.gameMenuState) {
+        //向VMActivity同步状态，编辑控制布局或打开游戏菜单时，不会继续处理按键事件
+        val allowKeyHandle = !viewModel.isEditingLayout && viewModel.gameMenuState != MenuState.SHOW
+        eventViewModel.sendEvent(EventViewModel.Event.Game.KeyHandle(allowKeyHandle))
     }
 
     SendKeycodeOperation(
@@ -625,6 +719,15 @@ fun GameScreen(
         val screenSize = rememberBoxSize()
 
         if (!viewModel.isEditingLayout) {
+            if (AllSettings.gamepadControl.state) {
+                GamepadOnActionListener(
+                    gamepadViewModel = gamepadViewModel,
+                    onAction = {
+                        viewModel.switchControlLayer(HideLayerWhen.WhenGamepad)
+                    }
+                )
+            }
+
             if (AllSettings.gamepadControl.state && gamepadViewModel.gamepadEngaged) {
                 //手柄事件监听
                 GamepadKeyListener(
@@ -634,9 +737,6 @@ fun GameScreen(
                         events.forEach { event ->
                             viewModel.onKeyEvent(event, pressed)
                         }
-                    },
-                    onAction = {
-                        viewModel.switchControlLayer(HideLayerWhen.WhenGamepad)
                     }
                 )
 
@@ -695,7 +795,7 @@ fun GameScreen(
                     CallbackBridge.sendKeyPress(keycode)
                 },
                 isGrabbing = isGrabbing,
-                resolutionRatio = AllSettings.resolutionRatio.state,
+                displayOffset = gameDisplayLayout.offset,
                 onOccupiedPointer = { viewModel.occupiedPointers.add(it) },
                 onReleasePointer = { viewModel.occupiedPointers.remove(it) }
             )
@@ -787,6 +887,14 @@ fun GameScreen(
             )
         }
 
+        //手柄输入模式选择询问
+        GamepadModePromptDialog(
+            visible = gamepadViewModel.modePromptVisible,
+            onConfirm = { mode ->
+                gamepadViewModel.confirmModePrompt(mode)
+            }
+        )
+
         if (viewModel.isEditingLayout) {
             viewModel.currentControlFile?.let {
                 ControlEditor(
@@ -831,6 +939,10 @@ fun GameScreen(
                         AllSettings.menuBallPos.save()
                     },
                     gameFps = gameFps,
+                    fpsDisplayMode = AllSettings.fpsDisplayMode.state,
+                    fpsHistory = viewModel.fpsHistory,
+                    fpsMax = viewModel.fpsMax,
+                    fpsMin = viewModel.fpsMin,
                     showMemory = AllSettings.showMemory.state,
                     opened = viewModel.gameMenuState == MenuState.SHOW,
                     alpha = AllSettings.menuBallOpacity.state / 100f,
@@ -1016,7 +1128,8 @@ private fun MouseControlLayout(
             onMouse = onMouseMoved,
             gamepadViewModel = gamepadViewModel,
             onTap = { position ->
-                CallbackBridge.putMouseEventWithCoords(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), position.x.sumPosition(), position.y.sumPosition())
+                val gamePosition = currentGameDisplayLayout(screenSize).mapToGame(position)
+                CallbackBridge.putMouseEventWithCoords(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT.toInt(), gamePosition.x, gamePosition.y)
             },
             onCapturedTap = {
                 if (AllSettings.gestureControl.state) {
@@ -1040,7 +1153,7 @@ private fun MouseControlLayout(
                 }
             },
             onPointerMove = { pos ->
-                pos.sendPosition()
+                pos.sendPosition(screenSize)
             },
             onCapturedMove = { delta ->
                 CallbackBridge.sendCursorDelta(
@@ -1057,15 +1170,16 @@ private fun MouseControlLayout(
             },
             isMoveOnlyPointer = isMoveOnlyPointer,
             onOccupiedPointer = onOccupiedPointer,
-            onReleasePointer = onReleasePointer
+            onReleasePointer = onReleasePointer,
+            enableScrollGesture = AllSettings.gestureControl.state,
+            onScrollGesture = { scroll ->
+                CallbackBridge.sendScroll(scroll.x.toDouble(), scroll.y.toDouble())
+            }
         )
     }
 }
 
-private fun Offset.sendPosition() {
-    CallbackBridge.sendCursorPos(x.sumPosition(), y.sumPosition())
-}
-
-private fun Float.sumPosition(): Float {
-    return (this * (AllSettings.resolutionRatio.state / 100f))
+private fun Offset.sendPosition(screenSize: IntSize) {
+    val gamePosition = currentGameDisplayLayout(screenSize).mapToGame(this)
+    CallbackBridge.sendCursorPos(gamePosition.x, gamePosition.y)
 }

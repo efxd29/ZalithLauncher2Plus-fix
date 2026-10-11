@@ -26,7 +26,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,7 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.scrollbar
+import androidx.compose.material3.nonInteractiveScrollbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,12 +63,14 @@ import androidx.compose.ui.window.DialogProperties
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.plugin.renderer_v2.data.EnvSettingUnit
 import com.movtery.zalithlauncher.ui.components.DefaultSwitch
+import com.movtery.zalithlauncher.ui.components.ImePanContainer
 import com.movtery.zalithlauncher.ui.components.MarqueeText
 import com.movtery.zalithlauncher.ui.components.OwnOutlinedTextField
 import com.movtery.zalithlauncher.ui.components.SimpleListItem
 import com.movtery.zalithlauncher.ui.components.SingleLineTextCheck
 import com.movtery.zalithlauncher.ui.components.TitleAndSummary
 import com.movtery.zalithlauncher.ui.components.fadeEdge
+import com.movtery.zalithlauncher.ui.components.rememberDialogMaxHeight
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.CardPosition
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.rememberSettingsCardShape
 import com.movtery.zalithlauncher.ui.theme.cardColor
@@ -89,18 +90,22 @@ fun RendererV2ConfigDialog(
 ) {
     Dialog(
         onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
-        BoxWithConstraints(
+        ImePanContainer(
             modifier = Modifier
                 .fillMaxWidth(0.6f)
+                .heightIn(max = rememberDialogMaxHeight())
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
                     .padding(all = 3.dp)
-                    .heightIn(max = maxHeight - 6.dp)
+                    .heightIn(max = (maxHeight - 6.dp).coerceAtMost(rememberDialogMaxHeight()))
                     .wrapContentHeight(),
                 shadowElevation = 3.dp,
                 color = cardColor(false),
@@ -124,8 +129,8 @@ fun RendererV2ConfigDialog(
                             .fadeEdge(state = scrollState)
                             .weight(1f, fill = false)
                             .fillMaxWidth()
-                            .scrollbar(
-                                state = scrollState.scrollIndicatorState,
+                            .nonInteractiveScrollbar(
+                                state = scrollState.scrollIndicatorState!!,
                                 orientation = Orientation.Vertical,
                             ),
                         state = scrollState,
@@ -201,6 +206,30 @@ private fun DialogItemLayout(
 }
 
 /**
+ * 环境变量配置项的标题与描述布局
+ */
+@Composable
+private fun EnvTitleAndSummary(
+    pluginTitle: String?,
+    envKey: String,
+    modifier: Modifier = Modifier
+) {
+    val envText = stringResource(R.string.settings_renderer_env_title, envKey)
+    if (pluginTitle.isNullOrEmpty()) {
+        TitleAndSummary(
+            modifier = modifier,
+            title = envText
+        )
+    } else {
+        TitleAndSummary(
+            modifier = modifier,
+            title = pluginTitle,
+            summary = envText
+        )
+    }
+}
+
+/**
  * 选项式环境变量配置项
  */
 @Composable
@@ -241,10 +270,10 @@ private fun SelectableEnvItem(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                TitleAndSummary(
-                    modifier = Modifier.fillMaxWidth(),
-                    title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
-                    summary = unit.summary
+                EnvTitleAndSummary(
+                    pluginTitle = unit.title,
+                    envKey = unit.rawEnv.key,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     modifier = Modifier.alpha(if (!hasCheckbox || unit.isEnabled) 0.7f else 0.38f),
@@ -314,9 +343,9 @@ private fun CustomizableEnvItem(
                 .padding(all = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            TitleAndSummary(
-                title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
-                summary = unit.summary
+            EnvTitleAndSummary(
+                pluginTitle = unit.title,
+                envKey = unit.rawEnv.key
             )
             SingleLineTextCheck(
                 text = unit.state,
@@ -354,12 +383,12 @@ private fun ToggleableEnvItem(
                 .padding(all = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TitleAndSummary(
+            EnvTitleAndSummary(
+                pluginTitle = unit.title,
+                envKey = unit.rawEnv.key,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 16.dp),
-                title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
-                summary = unit.summary
+                    .padding(end = 16.dp)
             )
             DefaultSwitch(
                 checked = unit.isEnabled,

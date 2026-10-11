@@ -87,6 +87,7 @@
     <string name="generic_unspecified">未指定</string>
     <string name="generic_save">保存</string>
     <string name="generic_saved">已保存</string>
+    <string name="generic_saving">正在保存…</string>
     <string name="generic_share">分享</string>
     <string name="generic_copied">已复制</string>
     <string name="generic_no_matching_items">没有匹配的项目</string>
@@ -316,6 +317,13 @@
     <string name="download_assets_filter_sort_by_recently_created">最近创建</string>
     <string name="download_assets_filter_sort_by_recently_updated">最近更新</string>
     <string name="download_assets_result_authors">作者：%s</string>
+    <string name="favorite_add">收藏</string>
+    <string name="favorite_added">已收藏</string>
+    <string name="favorites_empty">还没有收藏的项目，去搜索并收藏喜欢的资源吧！</string>
+    <string name="favorites_empty_filtered">没有符合当前过滤条件的收藏项目</string>
+    <string name="favorites_item_unavailable">已失效</string>
+    <string name="favorites_sort_follow_time">收藏时间</string>
+    <string name="favorites_sort_title">项目名称</string>
     <string name="download_assets_result_previous_page">上一页</string>
     <string name="download_assets_result_next_page">下一页</string>
     <string name="download_assets_failed_to_get_result">获取搜索结果失败：%s。点击重试。</string>
@@ -573,6 +581,7 @@
     <string name="account_label_email">邮箱或用户名</string>
     <string name="account_label_password">密码</string>
     <string name="account_change_skin">更换皮肤</string>
+    <string name="account_wardrobe">衣橱</string>
     <string name="account_change_skin_arm_style">手臂样式</string>
     <string name="account_change_skin_arm_wide">宽手臂</string>
     <string name="account_change_skin_arm_slim">细手臂</string>
@@ -1026,7 +1035,6 @@
     <string name="screenshots_manage_no_screenshots">此版本没有截图</string>
     <string name="screenshots_manage_export">导出</string>
     <string name="screenshots_manage_export_title">导出截图</string>
-    <string name="screenshots_manage_export_success">导出完成</string>
     <string name="screenshots_manage_export_failed">导出失败</string>
     <string name="screenshots_manage_export_all_message">将所有截图导出到系统相册？</string>
     <string name="screenshots_manage_export_selected_message">将选中的 %1$d 张截图导出到系统相册？</string>
@@ -1518,6 +1526,8 @@
     <string name="vibrate_kind_tick">滴答</string>
     <string name="festivals_new_year">新年快乐！</string>
     <string name="festivals_april_fools">愚人节快乐！</string>
+    <string name="festivals_halloween">万圣节快乐！</string>
+    <string name="festivals_valentines">情人节快乐！</string>
     <string name="festivals_christmas">圣诞节快乐！</string>
     <!-- Custom Cape Upload -->
     <string name="account_change_cape_upload">更换披风</string>

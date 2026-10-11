@@ -189,7 +189,7 @@ object ControlManager {
                 layout.saveToFile(data.file)
             } catch (e: Exception) {
                 submitError(e)
-                FileUtils.deleteQuietly(data.file)
+//                FileUtils.deleteQuietly(data.file)
             }
             refresh()
         }

@@ -21,8 +21,12 @@ package com.movtery.zalithlauncher.path
 import android.content.Context
 import android.os.Environment
 import com.movtery.zalithlauncher.game.launch.LogName
+import com.movtery.zalithlauncher.utils.file.ensureDirectorySilently
+import com.movtery.zalithlauncher.utils.logging.Logger
 import org.apache.commons.io.FileUtils
 import java.io.File
+
+private const val TAG = "PathManager"
 
 class PathManager {
     companion object {
@@ -65,7 +69,12 @@ class PathManager {
             DIR_FILES_PRIVATE = context.filesDir
             DIR_FILES_EXTERNAL = context.getExternalFilesDir(null) ?: run {
                 //from FCL (commit 744156a)
-                File(Environment.getExternalStorageDirectory(), "Android/data/${context.packageName}/files")
+                val externalDir = File(Environment.getExternalStorageDirectory(), "Android/data/${context.packageName}/files")
+                if (externalDir.ensureDirectorySilently()) externalDir
+                else {
+                    Logger.warning(TAG, "External files dir is inaccessible, falling back to internal storage: ${externalDir.absolutePath}")
+                    File(DIR_FILES_PRIVATE, "data_files")
+                }
             }
             DIR_CACHE = context.cacheDir
             DIR_NATIVE_LIB = context.applicationInfo.nativeLibraryDir

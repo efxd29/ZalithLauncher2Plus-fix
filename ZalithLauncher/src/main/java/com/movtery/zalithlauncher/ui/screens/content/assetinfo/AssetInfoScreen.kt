@@ -32,6 +32,7 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.movtery.zalithlauncher.game.download.assets.downloadDependenciesForVersions
 import com.movtery.zalithlauncher.game.download.assets.downloadSingleForVersions
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
@@ -69,7 +70,7 @@ fun AssetInfoScreen(
     DownloadSingleOperation(
         operation = operation,
         changeOperation = { operation = it },
-        doInstall = { classes, version, gameVersions ->
+        doInstall = { classes, version, gameVersions, dependencies ->
             downloadSingleForVersions(
                 context = context,
                 version = version,
@@ -77,10 +78,15 @@ fun AssetInfoScreen(
                 folder = classes.versionFolder.folderName,
                 submitError = submitError
             )
+            downloadDependenciesForVersions(
+                requests = dependencies,
+                versions = gameVersions,
+                submitError = submitError
+            )
         },
-        onDependencyClicked = { dep, classes ->
+        onDependencyClicked = { platform, projectId, classes ->
             backStack.navigateTo(
-                NormalNavKey.DownloadAssets(dep.platform, dep.projectId, classes)
+                NormalNavKey.DownloadAssets(platform, projectId, classes)
             )
         }
     )

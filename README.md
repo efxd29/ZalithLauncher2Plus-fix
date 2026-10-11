@@ -41,26 +41,34 @@ This project is derived from the excellent work of the Zalith Launcher team:
 
 Please visit the upstream project if you want the official, unmodified version.
 
-## 🌐 Language and Translation Support
+## 🌐 语言与翻译支持
 
 This fork uses translations of Zalith Launcher 2. To contribute translations or improvements, please consider contributing upstream to the [Zalith Launcher 2 Weblate project](https://hosted.weblate.org/projects/zalithlauncher2).
 
-## 📦 Build Instructions (For Developers)
 
 ### Requirements
 
-* Android Studio **Bumblebee** or newer
-* Android SDK:
-  * **Minimum API level**: 26
-  * **Target API level**: 35
+## 📦 构建方式（开发者）
+
+> 以下内容适用于希望参与开发或自行构建应用的用户。
+
+### 环境要求
+
+* Android Studio Bumblebee 以上
+* Android SDK：
+    * **最低 API**：26
+    * **目标 API**：35
 * JDK 11
 
-### Build Steps
+### 构建步骤
 
 ```bash
 git clone https://github.com/Star1xr/ZalithLauncher2Plus.git
 # Open the project in Android Studio and build
 ```
+
+
+
 
 ## 📜 License
 

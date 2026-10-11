@@ -28,14 +28,17 @@ import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.path.GamePathManager
 import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
+import com.movtery.zalithlauncher.setting.enums.ActionMenuSide
 import com.movtery.zalithlauncher.setting.enums.AppLanguage
 import com.movtery.zalithlauncher.setting.enums.BackgroundBlur
 import com.movtery.zalithlauncher.setting.enums.ChromaMode
 import com.movtery.zalithlauncher.setting.enums.DarkMode
+import com.movtery.zalithlauncher.setting.enums.FpsDisplayMode
+import com.movtery.zalithlauncher.setting.enums.GamepadInputMode
 import com.movtery.zalithlauncher.setting.enums.GestureActionType
-import com.movtery.zalithlauncher.setting.enums.HomePageType
 import com.movtery.zalithlauncher.setting.enums.MirrorSourceType
 import com.movtery.zalithlauncher.setting.enums.MouseControlMode
+import com.movtery.zalithlauncher.setting.enums.ResolutionRule
 import com.movtery.zalithlauncher.ui.control.HotbarRule
 import com.movtery.zalithlauncher.ui.control.gamepad.JoystickMode
 import com.movtery.zalithlauncher.ui.control.mouse.CENTER_HOTSPOT
@@ -72,6 +75,21 @@ object AllSettings : SettingsRegistry() {
     val resolutionRatio = intSetting("resolutionRatio", 70, 25..300)
 
     /**
+     * 分辨率规则
+     */
+    val resolutionRule = enumSetting("resolutionRule", ResolutionRule.PERCENTAGE)
+
+    /**
+     * 自定义分辨率宽度，0 表示尚未初始化
+     */
+    val customResolutionWidth = intSetting("customResolutionWidth", 0)
+
+    /**
+     * 自定义分辨率高度，0 表示尚未初始化
+     */
+    val customResolutionHeight = intSetting("customResolutionHeight", 0)
+
+    /**
      * 游戏页面全屏化
      */
     val gameFullScreen = boolSetting("gameFullScreen", true)
@@ -90,6 +108,11 @@ object AllSettings : SettingsRegistry() {
      * 持续性能模式
      */
     val sustainedPerformance = boolSetting("sustainedPerformance", false)
+
+    /**
+     * 游戏运行时请求系统切换到同分辨率最高刷新率档位（关闭则回落系统自适应刷新）
+     */
+    val requestMaxRefreshRate = boolSetting("requestMaxRefreshRate", true)
 
     /**
      * 使用系统的 Vulkan 驱动
@@ -289,6 +312,21 @@ object AllSettings : SettingsRegistry() {
     val gamepadControl = boolSetting("gamepadControl", true)
 
     /**
+     * SDL 下是否允许自动唤起输入法
+     */
+    val sdlAutoShowIme = boolSetting("sdlAutoShowIme", true)
+
+    /**
+     * 手柄输入模式（映射虚拟按键 / SDL 直通）
+     */
+    val gamepadInputMode = enumSetting("gamepadInputMode", GamepadInputMode.Mapped)
+
+    /**
+     * 是否已完成手柄输入模式的选择询问
+     */
+    val gamepadInputModePrompted = boolSetting("gamepadInputModePrompted", false)
+
+    /**
      * 摇杆死区缩放
      */
     val gamepadDeadZoneScale = intSetting("gamepadDeadZoneScale", 100, 50..200)
@@ -425,6 +463,11 @@ object AllSettings : SettingsRegistry() {
     val launcherSwapAnimateType = enumSetting("launcherSwapAnimateType", TransitionAnimationType.SLICE_IN)
 
     /**
+     * 主界面操作菜单的停泊侧
+     */
+    val launcherActionMenuSide = enumSetting("launcherActionMenuSide", ActionMenuSide.END)
+
+    /**
      * 启动器背景元素不透明度
      */
     val launcherBackgroundOpacity = intSetting("launcherBackgroundOpacity", 80, 20..100)
@@ -445,16 +488,6 @@ object AllSettings : SettingsRegistry() {
     val backgroundBlurType = enumSetting("backgroundBlurType", BackgroundBlur.Background)
 
     /**
-     * 启动器主页类型
-     */
-    val homePageType = enumSetting("homePageType", HomePageType.Blank)
-
-    /**
-     * 启动器网络主页下载地址
-     */
-    val homePageURL = stringSetting("homePageURL", "")
-
-    /**
      * 启动器上次检查更新时，用户选择忽略的版本号
      */
     val lastIgnoredVersion = intSetting("lastIgnoredVersion", null)
@@ -465,24 +498,22 @@ object AllSettings : SettingsRegistry() {
     val launcherLogRetentionDays = intSetting("launcherLogRetentionDays", 7, 1..14)
 
     /**
-     * 下载版本附加内容镜像源类型
+     * 游戏内容下载源
      */
-    val fetchModLoaderSource = enumSetting("fetchModLoaderSource", MirrorSourceType.OFFICIAL_FIRST)
+    val gameDownloadSource = enumSetting(
+        "gameDownloadSource",
+        MirrorSourceType.AUTO,
+        MirrorSourceType.LEGACY_NAMES
+    )
 
     /**
-     * 文件下载镜像源类型
+     * 资源平台下载源
      */
-    val fileDownloadSource = enumSetting("fileDownloadSource", MirrorSourceType.OFFICIAL_FIRST)
-
-    /**
-     * 资源搜索镜像源类型
-     */
-    val assetSearchSource = enumSetting("assetSearchSource", MirrorSourceType.OFFICIAL_FIRST)
-
-    /**
-     * 资源下载镜像源类型
-     */
-    val assetDownloadSource = enumSetting("assetDownloadSource", MirrorSourceType.OFFICIAL_FIRST)
+    val assetPlatformSource = enumSetting(
+        "assetPlatformSource",
+        MirrorSourceType.AUTO,
+        MirrorSourceType.LEGACY_NAMES
+    )
 
     /**
      * 是否使用旧版版本选择器（仅正式版，无搜索框）
@@ -515,6 +546,11 @@ object AllSettings : SettingsRegistry() {
      * 在游戏菜单悬浮窗上显示帧率
      */
     val showFPS = boolSetting("showFPS", true)
+
+    /**
+     * 游戏内帧率的展示模式
+     */
+    val fpsDisplayMode = enumSetting("fpsDisplayMode", FpsDisplayMode.NUMBER)
 
     /**
      * 在游戏菜单悬浮窗上显示内存
@@ -644,17 +680,17 @@ object AllSettings : SettingsRegistry() {
     /**
      * 搜索模组的初始搜索平台
      */
-    val searchModPlatform = enumSetting("searchModPlatform", Platform.MODRINTH)
+    val searchModPlatform = enumSetting("searchModPlatform", Platform.CURSEFORGE)
 
     /**
      * 搜索整合包的初始搜索平台
      */
-    val searchModpackPlatform = enumSetting("searchModpackPlatform", Platform.MODRINTH)
+    val searchModpackPlatform = enumSetting("searchModpackPlatform", Platform.CURSEFORGE)
 
     /**
      * 搜索资源包的初始搜索平台
      */
-    val searchResourcePackPlatform = enumSetting("searchResourcePackPlatform", Platform.MODRINTH)
+    val searchResourcePackPlatform = enumSetting("searchResourcePackPlatform", Platform.CURSEFORGE)
 
     /**
      * 搜索光影的初始搜索平台

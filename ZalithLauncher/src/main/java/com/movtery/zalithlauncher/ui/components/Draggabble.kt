@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
@@ -78,7 +79,7 @@ fun FloatingBall(
             .alpha(alpha)
             .fillMaxSize()
             .onSizeChanged { size ->
-                if (isInitialized && currentPosition != Offset.Zero) {
+                if (currentPosition != Offset.Zero) {
                     val maxX = (size.width - ballSize.width).toFloat().coerceAtLeast(0f)
                     val maxY = (size.height - ballSize.height).toFloat().coerceAtLeast(0f)
 
@@ -95,7 +96,7 @@ fun FloatingBall(
         val parentHeight by rememberUpdatedState(constraints.maxHeight)
 
         Surface(
-            modifier = modifier
+            modifier = Modifier
                 .onSizeChanged { size ->
                     ballSize = size
                     if (isInitialized || currentPosition != Offset.Zero) return@onSizeChanged
@@ -105,7 +106,12 @@ fun FloatingBall(
                     onPositionChanged(Offset(positionX, positionY))
                 }
                 .offset {
-                    IntOffset(currentPosition.x.roundToInt(), currentPosition.y.roundToInt())
+                    val maxX = (parentWidth - ballSize.width).coerceAtLeast(0)
+                    val maxY = (parentHeight - ballSize.height).coerceAtLeast(0)
+                    IntOffset(
+                        currentPosition.x.roundToInt().coerceIn(0, maxX),
+                        currentPosition.y.roundToInt().coerceIn(0, maxY)
+                    )
                 }
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -143,7 +149,7 @@ fun FloatingBall(
                             currentOnClick()
                         }
                     }
-                },
+                }.then(modifier),
             color = color,
             contentColor = contentColor,
             shape = shape

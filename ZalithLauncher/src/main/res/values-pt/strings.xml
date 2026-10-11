@@ -237,6 +237,8 @@
     <string name="download_assets_no_installed_versions">Nenhuma versão do jogo está instalada no momento, portanto, não é possível determinar o local de download do recurso. Por favor, instale uma versão do jogo primeiro!</string>
     <string name="download_assets_install_progress_installing">Instalando recursos\n%s</string>
     <string name="download_assets_install_failed">Falha ao instalar os recursos!</string>
+    <string name="download_assets_dependency_no_compatible_version">Não foi encontrada nenhuma versão compatível para a dependência %s</string>
+    <string name="download_assets_dependency_project_unavailable">Informações do projeto indisponíveis</string>
     <string name="game_launch_no_version">Nenhuma versão do jogo selecionada!</string>
     <string name="game_launch_no_account">Nenhuma conta está logada!</string>
     <string name="game_button_force_close">Forçar Fechamento</string>
@@ -266,6 +268,13 @@
     <string name="settings_renderer_global_renderer_summary">O renderizador global padrão usa uma camada de tradução de biblioteca dinâmica para garantir que o jogo funcione suavemente em dispositivos móveis</string>
     <string name="settings_renderer_resolution_scale_title">Escala de Resolução</string>
     <string name="settings_renderer_resolution_scale_summary">Valores mais baixos melhoram o desempenho; valores mais altos aumentam a qualidade gráfica. Ajuste de acordo com suas necessidades</string>
+
+    <string name="settings_renderer_resolution_rule_title">Regra de resolução</string>
+    <string name="settings_renderer_resolution_rule_summary">Escolha como a resolução da janela do jogo é calculada</string>
+    <string name="settings_renderer_resolution_rule_percentage">Percentagem</string>
+    <string name="settings_renderer_resolution_custom_summary">Renderiza o jogo com uma largura e altura exatas; a imagem é dimensionada para caber no ecrã</string>
+    <string name="settings_renderer_resolution_custom_width">Largura</string>
+    <string name="settings_renderer_resolution_custom_height">Altura</string>
     <string name="generic_all">Todos</string>
     <string name="crash_type">Tipo de crash: %s</string>
     <string name="crash_type_launcher">O launcher crashou</string>
@@ -288,7 +297,6 @@
     <string name="download_modpack_install_overrides">Extrair arquivos do modpack</string>
     <string name="download_modpack_download">Baixe o conteúdo necessário para o modpack</string>
     <string name="download_modpack_download_mods">Baixar todos os mods (%1$d/%2$d, %3$s)</string>
-    <string name="download_modpack_download_mods_retry">Tente baixar novamente todos os mods (%1$d/%2$d, %3$s)</string>
     <string name="download_modpack_get_loaders">Recuperar informações do carregador</string>
     <string name="download_modpack_final_move">Movendo arquivos do modpack</string>
     <string name="crash_launch_crash_title">A inicialização do app falhou</string>
@@ -525,8 +533,6 @@
     <string name="minecraft_download_stat_verify_task">Preparando verificações</string>
     <string name="minecraft_download_downloading_game_files">Baixando arquivos \n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_verifying_and_repairing_files">Verificando arquivos \n(%1$d/%2$d, %3$s/%4$s)</string>
-    <string name="minecraft_download_progress_retry_downloading_files">Baixando novamente \n(%1$d/%2$d, %3$s/%4$s)</string>
-    <string name="minecraft_download_progress_retry_verifying_files">Verificando novamente \n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_failed">Ocorreu um erro durante o download do Minecraft</string>
     <string name="minecraft_download_failed_retried">Antes disso, o launcher já havia tentado uma vez novamente, mas ainda houve tarefas que falharam no download</string>
     <string name="minecraft_download_failed_notfound">Alguns arquivos de dependência não puderam ser baixados. Se o problema persistir após várias tentativas, o jogo pode estar sem os arquivos de biblioteca necessários. É recomendado reinstalar o jogo.</string>
@@ -550,8 +556,6 @@
     <string name="settings_renderer_zink_driver_adreno">O launcher detectou que seu dispositivo possui uma GPU Adreno. Habilitar esta opção pode causar o mau funcionamento do renderizador Zink. Tem certeza de que deseja habilitá-la?</string>
     <string name="settings_renderer_vsync_in_zink_title">Sincronização vertical Zink</string>
     <string name="settings_renderer_vsync_in_zink_summary">Habilita a sincronização vertical para o renderizador Zink através da interface do sistema</string>
-    <string name="settings_renderer_force_big_core_title">Forçar núcleos de alta performance</string>
-    <string name="settings_renderer_force_big_core_summary">Força o thread de renderização do Minecraft a utilizar os núcleos de alto desempenho da CPU (núcleos grandes). Habilitar isso pode aumentar o consumo de energia e o aquecimento</string>
     <string name="settings_game_version_isolation_summary">Isola todas as versões para que seus arquivos não se interfiram</string>
     <string name="settings_game_skip_game_integrity_check_title">Pular verificação de integridade</string>
     <string name="settings_game_skip_game_integrity_check_summary">Quando o jogo é iniciado, os arquivos dele não serão baixados novamente, ainda que não sejam compatíveis com o hash</string>
@@ -586,7 +590,7 @@
     <string name="settings_control_mouse_capture_sensitivity_summary">Ajusta a sensibilidade do mouse quando capturado, como a sensibilidade do movimento da câmera do jogo</string>
     <string name="settings_control_mouse_control_mode_summary">Escolhe o método de controle do mouse virtual; Deslizar ou tocar na tela para mover o cursor</string>
     <string name="settings_control_mouse_long_press_delay_summary">Define o tempo de resposta para o toque longo (não afeta o mouse físico, mesmo que seu controle esteja desativado)</string>
-    <string name="settings_control_gesture_control_summary">Suporta interações no jogo por meio de gestos como tocar e pressionar longamente, semelhante à vesão Bedrock</string>
+    <string name="settings_control_gesture_control_summary">Suporta interações no jogo por meio de gestos como tocar, pressionar longamente e rolar deslizando com dois dedos, semelhante à vesão Bedrock</string>
     <string name="settings_control_gesture_tap_action_summary">Seleciona a ação do botão do mouse quando um toque na tela é feito</string>
     <string name="settings_control_gesture_long_press_action_summary">Seleciona a ação do botão do mouse quando um toque longo na tela é feito</string>
     <string name="settings_launcher_color_theme_summary">Personaliza as cores do launcher</string>
@@ -623,10 +627,8 @@
     <string name="settings_launcher_log_retention_days_title">Tempo de retenção do registro</string>
     <string name="settings_launcher_log_share_title">Compartilhar registros do launcher</string>
     <string name="settings_launcher_log_share_packing">Arquivos de registro do inicializador de pacotes</string>
-    <string name="settings_launcher_mirror_modloader_title">Versão da fonte do Mod Loader</string>
-    <string name="settings_launcher_mirror_file_download_title">Fonte do arquivo de download</string>
-    <string name="settings_launcher_mirror_official_first">Preferir fonte oficial</string>
-    <string name="settings_launcher_mirror_mirror_first">Preferir fonte mirror</string>
+    <string name="settings_launcher_mirror_official">De fontes oficiais</string>
+    <string name="settings_launcher_mirror_mirror">Do espelho</string>
     <string name="about_acknowledgements_pojav_text">%s utiliza o backend do PojavLauncher</string>
     <string name="about_acknowledgements_bangbang93_text">%s utiliza a API BMCL da fonte mirror</string>
     <string name="about_acknowledgements_title">Agradecimentos</string>

@@ -89,7 +89,7 @@ fun VersionConfigScreen(
     versionsScreenKey: TitledNavKey?,
     version: Version,
     backToMainScreen: () -> Unit,
-    onCheckVulkan: () -> Unit,
+    onCheckVulkan: (Version) -> Unit,
     showToast: (AndroidStringText) -> Unit,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
@@ -139,7 +139,9 @@ fun VersionConfigScreen(
                         .fillMaxWidth()
                         .offset { IntOffset(x = 0, y = yOffset.roundToPx()) },
                     config = config,
-                    onCheckVulkan = onCheckVulkan,
+                    onCheckVulkan = {
+                        onCheckVulkan(version)
+                    },
                     showToast = showToast,
                     submitError = submitError
                 )
@@ -379,6 +381,25 @@ private fun GameConfigs(
             summary = stringResource(R.string.settings_game_version_custom_info_summary),
             label = {
                 Text(text = stringResource(R.string.versions_config_follow_global_if_blank))
+            }
+        )
+
+        var gameArgs by remember { mutableStateOf(config.gameArgs) }
+        TextInputSettingsCard(
+            modifier = Modifier.fillMaxWidth(),
+            position = CardPosition.Middle,
+            value = gameArgs,
+            title = stringResource(R.string.versions_config_game_args_title),
+            summary = stringResource(R.string.versions_config_game_args_summary),
+            onValueChange = { value ->
+                gameArgs = value
+                if (config.gameArgs != value) {
+                    config.gameArgs = value
+                    config.saveOrShowError(submitError)
+                }
+            },
+            label = {
+                Text(text = stringResource(R.string.versions_config_disable_if_blank))
             }
         )
 

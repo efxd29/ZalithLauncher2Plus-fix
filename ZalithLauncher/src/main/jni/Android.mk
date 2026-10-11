@@ -60,7 +60,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := exithook
 LOCAL_LDLIBS := -ldl -llog
 LOCAL_SHARED_LIBRARIES := bytehook pojavexec
-LOCAL_SRC_FILES := exit_hook.c
+LOCAL_SRC_FILES := exit_hook.c \
+    sdl_hook.c \
+    sdl_dlopen_hook.c
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -130,3 +132,23 @@ LOCAL_SRC_FILES := \
     fsr/fsr_hook.cpp
 include $(BUILD_SHARED_LIBRARY)
 
+LOCAL_PATH := $(HERE_PATH)/flite
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := flite
+LOCAL_SRC_FILES := flite_bridge.c
+LOCAL_LDLIBS := -llog
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := fliteWrapper
+LOCAL_SRC_FILES := flite_wrapper.c
+LOCAL_SHARED_LIBRARIES := flite
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := flite_cmu_us_kal16
+LOCAL_SRC_FILES := flite_cmu_us_kal16.c
+include $(BUILD_SHARED_LIBRARY)
+
+LOCAL_PATH := $(HERE_PATH)

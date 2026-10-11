@@ -289,6 +289,7 @@ private fun rememberSearchAssetsViewModel(
  * @param mapCategories 通过平台获取类别本地化信息
  * @param filterPersistenceKey 持久化过滤器状态的 MMKV 键，为空则不保存
  * @param swapToDownload 跳转到下载详情页
+ * @param installedInfo 查询项目本地是否已安装，键为平台与平台项目ID
  * @param extraFilter 额外的过滤器UI
  */
 @Composable
@@ -310,6 +311,7 @@ fun SearchAssetsScreen(
     mapCategories: (Platform, String) -> PlatformFilterCode?,
     filterPersistenceKey: String? = null,
     swapToDownload: (Platform, projectId: String, iconUrl: String?) -> Unit = { _, _, _ -> },
+    installedInfo: ((Platform, projectId: String) -> InstalledMod?)? = null,
     extraFilter: (LazyListScope.() -> Unit)? = null
 ) {
     val viewModel: SearchScreenViewModel = rememberSearchAssetsViewModel(
@@ -356,6 +358,7 @@ fun SearchAssetsScreen(
                     viewModel.search()
                 },
                 swapToDownload = swapToDownload,
+                installedInfo = installedInfo,
                 onPreviousPage = { pageNumber ->
                     previousPage(
                         pageNumber = pageNumber,
