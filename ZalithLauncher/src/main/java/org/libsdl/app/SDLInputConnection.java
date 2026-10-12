@@ -14,6 +14,7 @@ import android.widget.EditText;
 import androidx.annotation.Keep;
 
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
+import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 import org.lwjgl.glfw.CallbackBridge;
 
 @Keep
@@ -108,6 +109,9 @@ class SDLInputConnection extends BaseInputConnection
         }
 
         String text = content.toString();
+        // Soft-IME text must be sent to SDL's text-input queue when Minecraft owns SDL rendering.
+        // The GLFW character callback remains the correct route for legacy GLFW-rendered versions.
+        boolean sdlRenderActive = SdlBridge.getSdlEnabled() && SdlBridge.isSdlRenderActive();
         int compareLength = Math.min(text.length(), mCommittedText.length());
         int matchLength, offset;
 
@@ -125,6 +129,9 @@ class SDLInputConnection extends BaseInputConnection
             if (SDLActivity.dispatchingKeyEvent()) {
                 // Physical key events are already handled through SDL's key dispatch path.
                 nativeGenerateScancodeForUnichar('\b');
+            } else if (sdlRenderActive) {
+                SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_DEL);
+                SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_DEL);
             } else {
                 LWJGLCharSender.INSTANCE.sendBackspace();
             }
@@ -143,7 +150,26 @@ class SDLInputConnection extends BaseInputConnection
                     }
                     offset += Character.charCount(codePoint);
                 }
-                SDLInputConnection.nativeCommitText(pendingText, 0);
+                if (sdlRenderActive) {
+                    SDLActivity.onNativeTextInput(pendingText);
+                } else {
+                    SDLInputConnection.nativeCommitText(pendingText, 0);
+                }
+            } else if (sdlRenderActive) {
+                // IME commits in SDL-rendered clients must become SDL_EVENT_TEXT_INPUT,
+                // not a GLFW-only character callback that the game may never consume.
+                for (offset = 0; offset < pendingText.length(); ) {
+                    int codePoint = pendingText.codePointAt(offset);
+                    if (codePoint == '\n') {
+                        if (!SDLActivity.onNativeSoftReturnKey()) {
+                            SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ENTER);
+                            SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ENTER);
+                        }
+                    } else {
+                        SDLActivity.onNativeTextInput(new String(Character.toChars(codePoint)));
+                    }
+                    offset += Character.charCount(codePoint);
+                }
             } else {
                 // Android IME commits must reach Minecraft/mod text fields through GLFW's char callback.
                 for (offset = 0; offset < pendingText.length(); ) {
