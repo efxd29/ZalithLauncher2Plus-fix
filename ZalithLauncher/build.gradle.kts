@@ -160,6 +160,14 @@ androidComponents {
                             }
                         }
 
+                        // The launcher uses components/lwjgl3 for legacy Minecraft and app_runtime/lwjgl/3.4.1
+                        // for SDL-era Minecraft 26.2+. No runtime path consumes this leftover 3.3.3 asset tree.
+                        // Its native libraries remain packaged in lib/<abi> through the AAR dependency.
+                        val unusedLwjgl333Assets = File(assetsDir, "app_runtime/lwjgl/3.3.3")
+                        if (unusedLwjgl333Assets.exists()) {
+                            logger.lifecycle("[$tag] remove unused LWJGL 3.3.3 asset tree: ${unusedLwjgl333Assets.deleteRecursively()}")
+                        }
+
                         // Package only the native runtime for the requested ABI.
                         // These libraries are assets, so Android's normal ABI split does not filter them.
                         if (projectArch == "all") return@doLast
