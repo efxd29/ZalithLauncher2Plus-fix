@@ -91,7 +91,7 @@ fun SideBar(
     onVersionsClick: () -> Unit,
     onInfoClick: () -> Unit
 ) {
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     val contentOffset by animateDpAsState(
         targetValue = if (expanded) 0.dp else (CollapsedWidth - ExpandedWidth),
@@ -106,6 +106,7 @@ fun SideBar(
         modifier = modifier
             .width(ExpandedWidth)
             .fillMaxHeight()
+            .padding(vertical = 8.dp)
     ) {
         Card(
             modifier = Modifier

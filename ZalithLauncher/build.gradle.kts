@@ -144,6 +144,7 @@ androidComponents {
                 val variantName = variant.name.replaceFirstChar { it.uppercaseChar() }
                 afterEvaluate {
                     val task = tasks.named("merge${variantName}Assets").get() as MergeSourceSetFolders
+                    task.inputs.property("lwjglArch", projectArch)
                     task.doLast {
                         val assetsDir = task.outputDir.get().asFile
                         val jreList = listOf("jre-8", "jre-17", "jre-21", "jre-25")
@@ -155,6 +156,33 @@ androidComponents {
                             runtimeDir.listFiles()?.forEach {
                                 if (projectArch != "all" && it.name != "version" && !it.name.contains("universal") && it.name != "bin-$projectArch.tar.xz") {
                                     logger.lifecycle("[$tag] delete: $it : ${it.delete()}")
+                                }
+                            }
+                        }
+
+                        // Package only the native runtime for the requested ABI.
+                        // These libraries are assets, so Android's normal ABI split does not filter them.
+                        if (projectArch == "all") return@doLast
+                        val abi = when (projectArch) {
+                            "arm" -> "armeabi-v7a"
+                            "arm64" -> "arm64-v8a"
+                            "x86" -> "x86"
+                            "x86_64" -> "x86_64"
+                            else -> return@doLast
+                        }
+                        val lwjglVersions = file("libs").listFiles { f ->
+                            f.name.matches(Regex("lwjgl-\\d+\\.\\d+\\.\\d+-natives-release\\.aar"))
+                        }
+                            ?.map { Regex("lwjgl-(\\d+\\.\\d+\\.\\d+)-natives-release\\.aar").find(it.name)!!.groupValues[1] }
+                            ?: emptyList()
+                        lwjglVersions.forEach { version ->
+                            val nativesDir = File(assetsDir, "app_runtime/lwjgl/$version/natives")
+                            if (nativesDir.isDirectory) {
+                                nativesDir.listFiles()?.forEach { dir ->
+                                    if (dir.isDirectory && dir.name != abi) {
+                                        logger.lifecycle("Removing non-target-arch natives: $dir")
+                                        dir.deleteRecursively()
+                                    }
                                 }
                             }
                         }
