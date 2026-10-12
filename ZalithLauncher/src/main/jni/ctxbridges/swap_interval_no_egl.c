@@ -222,8 +222,9 @@ struct ANativeWindow_real
 // endregion
 
 void setNativeWindowSwapInterval(struct ANativeWindow* nativeWindow, int swapInterval) {
+    // Keep the original BufferQueue behavior used by the initially smooth build.
     if(!getenv("POJAV_VSYNC_IN_ZINK")) {
-        return;
+        swapInterval = 0;
     }
     struct ANativeWindow_real* nativeWindowReal = (struct ANativeWindow_real*) nativeWindow;
     if(nativeWindowReal->common.magic != ANDROID_NATIVE_WINDOW_MAGIC) {
