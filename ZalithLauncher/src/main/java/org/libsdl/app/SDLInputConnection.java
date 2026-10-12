@@ -14,6 +14,7 @@ import android.widget.EditText;
 import androidx.annotation.Keep;
 
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
+import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 import org.lwjgl.glfw.CallbackBridge;
 
 @Keep
@@ -122,10 +123,10 @@ class SDLInputConnection extends BaseInputConnection
         /* FIXME: This doesn't handle graphemes, like '🌬️' */
         for (offset = matchLength; offset < mCommittedText.length(); ) {
             int codePoint = mCommittedText.codePointAt(offset);
-            if (SDLActivity.dispatchingKeyEvent()) {
+            if (SDLActivity.dispatchingKeyEvent() || SdlBridge.isSdlRenderActive()) {
+                // SDL-rendered Minecraft consumes IME editing through SDL's text/key event path.
                 nativeGenerateScancodeForUnichar('\b');
             } else {
-                // IME composition edits must reach the active GLFW text field as well as SDL.
                 LWJGLCharSender.INSTANCE.sendBackspace();
             }
             offset += Character.charCount(codePoint);
@@ -133,14 +134,20 @@ class SDLInputConnection extends BaseInputConnection
 
         if (matchLength < text.length()) {
             String pendingText = text.subSequence(matchLength, text.length()).toString();
-            if (SDLActivity.dispatchingKeyEvent()) {
-                // Hardware keys still use SDL's native path; don't synthesize a second GLFW char.
+            if (SDLActivity.dispatchingKeyEvent() || SdlBridge.isSdlRenderActive()) {
+                // SDL-rendered Minecraft (26.3+) must receive committed IME text as SDL text input.
+                // Sending only GLFW character callbacks makes the keyboard open but drops text.
+                for (offset = 0; offset < pendingText.length(); ) {
+                    int codePoint = pendingText.codePointAt(offset);
+                    if (codePoint == '\n' && SDLActivity.onNativeSoftReturnKey()) {
+                        mCommittedText = text;
+                        return;
+                    }
+                    offset += Character.charCount(codePoint);
+                }
                 SDLInputConnection.nativeCommitText(pendingText, 0);
             } else {
-                // LWJGL's SDL compatibility layer does not consistently deliver SDL text events to
-                // Minecraft/mod GLFW character callbacks. Send characters through the same direct
-                // callback bridge used by the launcher's working text input, without generating
-                // letter key-down events (which could trigger game key bindings).
+                // Legacy GLFW path: deliver characters without synthetic letter key presses.
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n') {
@@ -150,7 +157,6 @@ class SDLInputConnection extends BaseInputConnection
                     } else if (Character.isBmpCodePoint(codePoint)) {
                         CallbackBridge.sendCharacterOnly((char) codePoint);
                     } else {
-                        // Preserve supplementary Unicode characters through SDL's native text path.
                         SDLInputConnection.nativeCommitText(
                                 new String(Character.toChars(codePoint)), 0
                         );
