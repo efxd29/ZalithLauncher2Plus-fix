@@ -263,6 +263,11 @@ void gl_setup_window() {
 }
 
 void gl_swap_interval(int swapInterval) {
+    const char *renderer = getenv("POJAV_RENDERER");
+    // Keep Zink/Kopper frame pacing under launcher control unless its VSync option is enabled.
+    if (renderer && !strcmp(renderer, "opengles3_desktopgl_zink_kopper") && !getenv("POJAV_VSYNC_IN_ZINK")) {
+        return;
+    }
     eglSwapInterval_p(g_EglDisplay, swapInterval);
 }
 

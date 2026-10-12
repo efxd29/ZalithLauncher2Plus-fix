@@ -14,7 +14,6 @@ import android.widget.EditText;
 import androidx.annotation.Keep;
 
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
-import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 import org.lwjgl.glfw.CallbackBridge;
 
 @Keep
@@ -123,8 +122,8 @@ class SDLInputConnection extends BaseInputConnection
         /* FIXME: This doesn't handle graphemes, like '🌬️' */
         for (offset = matchLength; offset < mCommittedText.length(); ) {
             int codePoint = mCommittedText.codePointAt(offset);
-            if (SDLActivity.dispatchingKeyEvent() || SdlBridge.isSdlRenderActive()) {
-                // SDL-rendered Minecraft consumes IME editing through SDL's text/key event path.
+            if (SDLActivity.dispatchingKeyEvent()) {
+                // Physical key events are already handled through SDL's key dispatch path.
                 nativeGenerateScancodeForUnichar('\b');
             } else {
                 LWJGLCharSender.INSTANCE.sendBackspace();
@@ -134,9 +133,8 @@ class SDLInputConnection extends BaseInputConnection
 
         if (matchLength < text.length()) {
             String pendingText = text.subSequence(matchLength, text.length()).toString();
-            if (SDLActivity.dispatchingKeyEvent() || SdlBridge.isSdlRenderActive()) {
-                // SDL-rendered Minecraft (26.3+) must receive committed IME text as SDL text input.
-                // Sending only GLFW character callbacks makes the keyboard open but drops text.
+            if (SDLActivity.dispatchingKeyEvent()) {
+                // Physical keyboard input already traverses SDL; do not emit a duplicate GLFW character.
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n' && SDLActivity.onNativeSoftReturnKey()) {
@@ -147,7 +145,7 @@ class SDLInputConnection extends BaseInputConnection
                 }
                 SDLInputConnection.nativeCommitText(pendingText, 0);
             } else {
-                // Legacy GLFW path: deliver characters without synthetic letter key presses.
+                // Android IME commits must reach Minecraft/mod text fields through GLFW's char callback.
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n') {
