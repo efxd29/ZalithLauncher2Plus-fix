@@ -159,7 +159,12 @@ fun BoxScope.MinecraftHotbar(
                     width = (screenSize.width * resolutionRatio / 100f).toInt(),
                     height = (screenSize.height * resolutionRatio / 100f).toInt()
                 )
-                val slotSize = guiScale * 20
+                // guiScale is calculated in the reduced Minecraft framebuffer, while
+                // pointer coordinates are in the full SurfaceView. Convert the slot size
+                // back to display pixels or the hitbox becomes too narrow and shifts at
+                // resolutionRatio < 100 (the Plus default is 70%).
+                val ratio = resolutionRatio.coerceAtLeast(1)
+                val slotSize = (guiScale * 20f * 100f / ratio).toInt().coerceAtLeast(1)
 
                 with(density) {
                     hotbarSize = DpSize((slotSize * hotbarList.size).toDp(), slotSize.toDp())

@@ -222,8 +222,11 @@ struct ANativeWindow_real
 // endregion
 
 void setNativeWindowSwapInterval(struct ANativeWindow* nativeWindow, int swapInterval) {
+    // When explicit Zink/Kopper VSYNC handling is disabled, don't leave the native
+    // BufferQueue on its default synchronous mode; dequeueBuffer can otherwise stall
+    // the render loop on display VSYNC even when the game asked for interval 0.
     if(!getenv("POJAV_VSYNC_IN_ZINK")) {
-        return;
+        swapInterval = 0;
     }
     struct ANativeWindow_real* nativeWindowReal = (struct ANativeWindow_real*) nativeWindow;
     if(nativeWindowReal->common.magic != ANDROID_NATIVE_WINDOW_MAGIC) {

@@ -24,6 +24,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.SurfaceTexture
+import android.os.Build
 import android.os.Bundle
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -698,8 +699,23 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         this, flags, title, message, buttonFlags, buttonIds, buttonTexts, colors
     )
 
+    /**
+     * Request the best seamless refresh rate offered by the display for the game surface.
+     * This avoids Android leaving the game at a lower refresh-rate mode than the panel supports.
+     */
+    private fun voteMaxDisplayRefreshRate(surface: Surface) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val maxRefreshRate = maxOf(120f, *display.mode.alternativeRefreshRates)
+        surface.setFrameRate(
+            maxRefreshRate,
+            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+            Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS
+        )
+    }
+
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
         val nativeSurface = Surface(surface)
+        voteMaxDisplayRefreshRate(nativeSurface)
         SdlBridge.prepareSurface(this, nativeSurface, gameSurfaceView?.parent as? ViewGroup, surface)
         //游戏请求 GLFW direct gamepad 时的通知接收方
         CallbackBridge.setDirectGamepadEnableHandler {
@@ -759,6 +775,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         surfaceGeneration++
         pendingNewSurface?.complete(holder.surface)
         val surface = holder.surface
+        voteMaxDisplayRefreshRate(surface)
         SdlBridge.prepareSurface(this, surface, gameSurfaceView?.parent as? ViewGroup, holder)
         if (vmViewModel.isRunning) {
             ZLBridge.setupBridgeWindow(holder.surface)

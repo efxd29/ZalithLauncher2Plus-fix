@@ -150,6 +150,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.movtery.zalithlauncher.game.recorder.MediaProjectionForegroundService
+import com.movtery.zalithlauncher.game.sdl.SdlBridge
+import com.movtery.zalithlauncher.game.sdl.SdlTextSender
+import com.movtery.zalithlauncher.ui.control.event.LAUNCHER_EVENT_SWITCH_IME
 import org.lwjgl.glfw.CallbackBridge
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
@@ -229,9 +232,53 @@ private class GameViewModel(
     /** 游戏内消息发送器 */
     val gameTextSender = GameTextSender(viewModelScope)
 
+    /** Track key-ups for a chat shortcut whose T-down was intentionally suppressed. */
+    private val suppressedImeShortcutKeyUps = mutableSetOf<String>()
+
     /** 控制布局控件点击事件处理器 */
-    val eventHandler = EventHandler { event, pressed ->
+    val eventHandler = EventHandler(
+        shouldDispatch = ::shouldDispatchControlEvent
+    ) { event, pressed ->
         onKeyEvent(event, pressed)
+    }
+
+    /**
+     * A virtual button may combine "switch input method" with the configured chat key (T by default).
+     * Send the chat key once to open chat. When chat is already active, suppress both halves of
+     * that synthetic key press so the IME shortcut never inserts another character or leaves a
+     * stray key-up event in SDL/GLFW.
+     */
+    private fun shouldDispatchControlEvent(
+        clickEvents: List<ClickEvent>,
+        event: ClickEvent,
+        pressed: Boolean
+    ): Boolean {
+        if (event.type != ClickEvent.Type.Key) return true
+        if (!pressed && suppressedImeShortcutKeyUps.remove(event.key)) {
+            // The matching key-down was suppressed, so suppress its key-up as well.
+            return false
+        }
+        if (!pressed) return true
+
+        val togglesIme = clickEvents.any {
+            it.type == ClickEvent.Type.LauncherEvent && it.key == LAUNCHER_EVENT_SWITCH_IME
+        }
+        if (!togglesIme) return true
+
+        val openChatKey = mapToKeycode(OPEN_CHAT, OPEN_CHAT_VALUE) ?: return true
+        val eventKey = ControlEventKeycode.getKeycodeFromEvent(event.key)?.toInt() ?: return true
+        if (eventKey != openChatKey) return true
+
+        val chatInputActive = if (SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()) {
+            SdlBridge.isNativeTextInputActive()
+        } else {
+            !CallbackBridge.isGrabbing()
+        }
+        if (chatInputActive) {
+            suppressedImeShortcutKeyUps.add(event.key)
+            return false
+        }
+        return true
     }
 
     /** 处理控制布局类点击事件 */
@@ -700,7 +747,13 @@ fun GameScreen(
                 widthPercentage = AllSettings.hotbarWidth.state.hotbarPercentage(),
                 heightPercentage = AllSettings.hotbarHeight.state.hotbarPercentage(),
                 sendKeycode = { keycode ->
-                    CallbackBridge.sendKeyPress(keycode)
+                    // Minecraft 26.3 receives keyboard input through SDL. Avoid dispatching the
+                    // same synthetic hotbar press through both SDL and the legacy GLFW bridge.
+                    if (SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()) {
+                        SdlTextSender.sendKey(keycode)
+                    } else {
+                        CallbackBridge.sendKeyPress(keycode)
+                    }
                 },
                 isGrabbing = isGrabbing,
                 resolutionRatio = AllSettings.resolutionRatio.state,

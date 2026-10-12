@@ -263,10 +263,8 @@ void gl_setup_window() {
 }
 
 void gl_swap_interval(int swapInterval) {
-    const char *renderer = getenv("POJAV_RENDERER");
-    if (renderer && !strcmp(renderer, "opengles3_desktopgl_zink_kopper") && !getenv("POJAV_VSYNC_IN_ZINK")) {
-        return;
-    }
+    // Always propagate Minecraft's requested swap interval. Suppressing it for
+    // Zink/Kopper leaves EGL at its default interval and causes avoidable stalls.
     eglSwapInterval_p(g_EglDisplay, swapInterval);
 }
 

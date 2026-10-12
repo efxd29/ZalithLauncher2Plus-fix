@@ -536,6 +536,20 @@ private fun LastLogCard(
         currentVersion?.let { VersionsManager.getLatestLog(it) }
     }
     val logExists = remember(logFile) { logFile?.exists() == true }
+    var logPreview by remember(logFile) { mutableStateOf("") }
+    LaunchedEffect(logFile) {
+        // Never read an entire (potentially hundreds-of-megabytes) game log on the UI thread.
+        logPreview = withContext(Dispatchers.IO) {
+            val file = logFile ?: return@withContext ""
+            runCatching {
+                file.inputStream().use { input ->
+                    val buffer = ByteArray(2048)
+                    val count = input.read(buffer)
+                    if (count > 0) String(buffer, 0, count, Charsets.UTF_8) else ""
+                }
+            }.getOrDefault("")
+        }
+    }
 
     BackgroundCard(
         modifier = modifier,
@@ -564,11 +578,7 @@ private fun LastLogCard(
                     )
                 } else {
                     Text(
-                        text = remember(logFile) {
-                            try {
-                                logFile.readText().take(2000)
-                            } catch (e: Exception) { "" }
-                        },
+                        text = logPreview,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier
                             .weight(1f)

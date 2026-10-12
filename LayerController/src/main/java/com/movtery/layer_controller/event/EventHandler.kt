@@ -25,6 +25,11 @@ import com.movtery.layer_controller.observable.ObservableControlLayer
  * @param handle 处理事件
  */
 class EventHandler(
+    private val shouldDispatch: (
+        clickEvents: List<ClickEvent>,
+        event: ClickEvent,
+        pressed: Boolean
+    ) -> Boolean = { _, _, _ -> true },
     private val handle: (event: ClickEvent, pressed: Boolean) -> Unit = { _, _ -> }
 ) {
     /**
@@ -37,7 +42,9 @@ class EventHandler(
         handle: (ClickEvent) -> Boolean = { true }
     ) {
         for (event in clickEvents) {
-            if (handle(event)) handle(event, isPressed)
+            if (handle(event) && shouldDispatch(clickEvents, event, isPressed)) {
+                this.handle(event, isPressed)
+            }
         }
     }
 
