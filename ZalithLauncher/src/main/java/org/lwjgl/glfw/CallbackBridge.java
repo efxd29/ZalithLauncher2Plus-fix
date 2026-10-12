@@ -220,6 +220,17 @@ public class CallbackBridge {
         SDLActivity.onNativeKeyUp(EfficientAndroidLWJGLKeycode.getAndroidKeycode(keychar));
     }
 
+    /**
+     * Sends a text character to the active GLFW character callback only.
+     * Unlike sendChar(), this intentionally does not synthesize SDL key-down/up events,
+     * so typing a letter cannot also activate a Minecraft key binding.
+     */
+    @Keep
+    public static void sendCharacterOnly(char keychar) {
+        nativeSendCharMods(keychar, 0);
+        nativeSendChar(keychar);
+    }
+
     public static void sendKeyPress(int keyCode, int modifiers, boolean status) {
         sendKeyPress(keyCode, 0, modifiers, status);
     }

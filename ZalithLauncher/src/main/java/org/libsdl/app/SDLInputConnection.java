@@ -5,14 +5,16 @@
 
 package org.libsdl.app;
 
-import androidx.annotation.Keep;
-
-import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
 import android.text.Editable;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 import android.widget.EditText;
+
+import androidx.annotation.Keep;
+
+import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
+import org.lwjgl.glfw.CallbackBridge;
 
 @Keep
 class SDLInputConnection extends BaseInputConnection
@@ -146,7 +148,7 @@ class SDLInputConnection extends BaseInputConnection
                             LWJGLCharSender.INSTANCE.sendEnter();
                         }
                     } else if (Character.isBmpCodePoint(codePoint)) {
-                        LWJGLCharSender.INSTANCE.sendChar((char) codePoint);
+                        CallbackBridge.sendCharacterOnly((char) codePoint);
                     } else {
                         // Preserve supplementary Unicode characters through SDL's native text path.
                         SDLInputConnection.nativeCommitText(
