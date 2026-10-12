@@ -35,8 +35,7 @@ enum class Components(
         "lwjgl3-3.4.1",
         "LWJGL 3.4.1 (Minecraft 26.2+)",
         R.string.unpack_screen_lwjgl,
-        assetsDir = "app_runtime/lwjgl/3.4.1",
-        excludedAssetDirs = setOf("natives")
+        assetsDir = "app_runtime/lwjgl/3.4.1"
     ),
     LAUNCHER("launcher", "Launcher Components", R.string.unpack_screen_launcher)
 }

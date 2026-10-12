@@ -279,7 +279,7 @@ abstract class Launcher(
 
         // Force LWJGL to use the Freetype library intended for it, instead of using the one
         // that we ship with Java (since it may be older than what's needed)
-        args.add("-Dorg.lwjgl.freetype.libname=${PathManager.DIR_NATIVE_LIB}/libfreetype.so")
+        args.add("-Dorg.lwjgl.freetype.libname=${getFreetypeLibraryPath()}/libfreetype.so")
 
         // Our spirv-cross is compiled shared, so it gets named shared.
         args.add("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared")
@@ -345,7 +345,9 @@ abstract class Launcher(
         return paths.joinToString(":")
     }
 
-    protected fun getLibraryPath(): String {
+    protected open fun getFreetypeLibraryPath(): String = PathManager.DIR_NATIVE_LIB
+
+    protected open fun getLibraryPath(): String {
         val libDirName = if (is64BitsDevice) "lib64" else "lib"
         val path = listOfNotNull(
             "/system/$libDirName",

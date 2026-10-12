@@ -19,6 +19,7 @@
 package com.movtery.zalithlauncher.components
 
 import android.content.Context
+import android.os.Build
 import com.movtery.zalithlauncher.path.PathManager
 
 class UnpackComponentsTask(context: Context, val component: Components) : UnpackSingleTask(
@@ -26,5 +27,13 @@ class UnpackComponentsTask(context: Context, val component: Components) : Unpack
     rootDir = PathManager.DIR_COMPONENTS,
     assetsDirName = component.assetsDir,
     fileDirName = component.component,
-    excludedAssetDirs = component.excludedAssetDirs
+    excludedAssetDirs = component.excludedAssetDirs + (
+        if (component == Components.LWJGL3_4_1) {
+            setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+                .filter { it != Build.SUPPORTED_ABIS.firstOrNull() }
+                .toSet()
+        } else {
+            emptySet()
+        }
+    )
 )

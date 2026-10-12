@@ -279,12 +279,41 @@ class GameLauncher(
         )
     }
 
+    /**
+     * Minecraft 26.2+ ships SDL bindings from LWJGL 3.4.1. Its matching native
+     * libraries are extracted beside those jars so the game cannot accidentally
+     * load the launcher's older, app-wide LWJGL native binaries first.
+     */
+    private fun getLWJGL341NativeDirectory(): File? {
+        val versionMatch = Regex("""^(\d+)\.(\d+)""").find(gameManifest.id.trim()) ?: return null
+        val major = versionMatch.groupValues.getOrNull(1)?.toIntOrNull() ?: return null
+        val minor = versionMatch.groupValues.getOrNull(2)?.toIntOrNull() ?: return null
+        if (major < 26 || (major == 26 && minor < 2)) return null
+
+        val nativesRoot = File(PathManager.DIR_COMPONENTS, "lwjgl3-3.4.1/natives")
+        return Build.SUPPORTED_ABIS.asSequence()
+            .map { abi -> File(nativesRoot, abi) }
+            .firstOrNull { abiDir ->
+                abiDir.isDirectory && File(abiDir, "liblwjgl.so").isFile
+            }
+    }
+
     override fun getRuntimeLibraryPath(): String {
         val parent = super.getRuntimeLibraryPath()
+        val lwjglNativePath = getLWJGL341NativeDirectory()?.absolutePath
+        val nativeAwarePath = lwjglNativePath?.let { "$it:$parent" } ?: parent
         return jnaDir?.absolutePath?.let { dirPath ->
-            "$parent:$dirPath"
-        } ?: parent
+            "$nativeAwarePath:$dirPath"
+        } ?: nativeAwarePath
     }
+
+    override fun getLibraryPath(): String {
+        val parent = super.getLibraryPath()
+        return getLWJGL341NativeDirectory()?.absolutePath?.let { "$it:$parent" } ?: parent
+    }
+
+    override fun getFreetypeLibraryPath(): String =
+        getLWJGL341NativeDirectory()?.absolutePath ?: super.getFreetypeLibraryPath()
 
     private fun tryStartTouchProxy() {
         if (version.enableTouchProxy) {
