@@ -291,7 +291,16 @@ class VMViewModel : ViewModel() {
     /**
      * 直接发送文本到游戏
      */
+    private fun usesSdlGameInput(): Boolean =
+        SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()
+
     private fun String.sendText() {
+        if (usesSdlGameInput()) {
+            // Minecraft 26.3+ consumes printable text from SDL's text-input queue.
+            // The legacy GLFW char bridge opens the keyboard but does not reach SDL-era text fields.
+            SDLActivity.onNativeTextInput(this)
+            return
+        }
         forEach { char ->
             sender.sendChar(char)
         }
@@ -302,11 +311,21 @@ class VMViewModel : ViewModel() {
     }
 
     fun sendBackspace() {
-        sender.sendBackspace()
+        if (usesSdlGameInput()) {
+            SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_DEL)
+            SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_DEL)
+        } else {
+            sender.sendBackspace()
+        }
     }
 
     fun sendEnder() {
-        sender.sendEnter()
+        if (usesSdlGameInput()) {
+            SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ENTER)
+            SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ENTER)
+        } else {
+            sender.sendEnter()
+        }
     }
 
     /**
