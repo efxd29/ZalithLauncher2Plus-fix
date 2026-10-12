@@ -54,9 +54,16 @@ class SDLInputConnection extends BaseInputConnection
 //        }
 //
 //        return super.sendKeyEvent(event);
-        //输入法（软键盘）合成的可打印字符事件不代表游戏按键，
-        //转发为 SDL 按键事件会误触游戏绑定
+        // Soft keyboards sometimes deliver a printable KeyEvent instead of commitText().
+        // Convert it to text only: do not send a gameplay key-down/up for the same character.
         if ((event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) != 0 && event.isPrintingKey()) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN
+                    && !event.isCtrlPressed() && !event.isAltPressed()) {
+                int codePoint = event.getUnicodeChar();
+                if (codePoint > 0 && !Character.isISOControl(codePoint)) {
+                    commitText(new String(Character.toChars(codePoint)), 1);
+                }
+            }
             return true;
         }
         if(KeyEvent.ACTION_DOWN == event.getAction()){
@@ -126,12 +133,9 @@ class SDLInputConnection extends BaseInputConnection
         /* FIXME: This doesn't handle graphemes, like '🌬️' */
         for (offset = matchLength; offset < mCommittedText.length(); ) {
             int codePoint = mCommittedText.codePointAt(offset);
-            if (SDLActivity.dispatchingKeyEvent()) {
-                // Physical key events are already handled through SDL's key dispatch path.
+            if (SDLActivity.dispatchingKeyEvent() || sdlRenderActive) {
+                // Use SDL's own edit-key path whenever SDL owns the game window.
                 nativeGenerateScancodeForUnichar('\b');
-            } else if (sdlRenderActive) {
-                SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_DEL);
-                SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_DEL);
             } else {
                 LWJGLCharSender.INSTANCE.sendBackspace();
             }
@@ -140,8 +144,23 @@ class SDLInputConnection extends BaseInputConnection
 
         if (matchLength < text.length()) {
             String pendingText = text.subSequence(matchLength, text.length()).toString();
-            if (SDLActivity.dispatchingKeyEvent()) {
-                // Physical keyboard input already traverses SDL; do not emit a duplicate GLFW character.
+            if (sdlRenderActive) {
+                // Match SDL's Android IME contract: commit the complete text to SDL directly.
+                // Routing each character through the launcher wrapper can drop input when the
+                // launcher/game text-input states change between composing and commit callbacks.
+                if (!SDLActivity.dispatchingKeyEvent()) {
+                    for (offset = 0; offset < pendingText.length(); ) {
+                        int codePoint = pendingText.codePointAt(offset);
+                        if (codePoint == '\n' && SDLActivity.onNativeSoftReturnKey()) {
+                            mCommittedText = text;
+                            return;
+                        }
+                        offset += Character.charCount(codePoint);
+                    }
+                }
+                SDLInputConnection.nativeCommitText(pendingText, 0);
+            } else if (SDLActivity.dispatchingKeyEvent()) {
+                // Preserve SDL's own key/text route for a key event delivered by the active editor.
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n' && SDLActivity.onNativeSoftReturnKey()) {
@@ -150,28 +169,9 @@ class SDLInputConnection extends BaseInputConnection
                     }
                     offset += Character.charCount(codePoint);
                 }
-                if (sdlRenderActive) {
-                    SDLActivity.onNativeTextInput(pendingText);
-                } else {
-                    SDLInputConnection.nativeCommitText(pendingText, 0);
-                }
-            } else if (sdlRenderActive) {
-                // IME commits in SDL-rendered clients must become SDL_EVENT_TEXT_INPUT,
-                // not a GLFW-only character callback that the game may never consume.
-                for (offset = 0; offset < pendingText.length(); ) {
-                    int codePoint = pendingText.codePointAt(offset);
-                    if (codePoint == '\n') {
-                        if (!SDLActivity.onNativeSoftReturnKey()) {
-                            SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_ENTER);
-                            SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_ENTER);
-                        }
-                    } else {
-                        SDLActivity.onNativeTextInput(new String(Character.toChars(codePoint)));
-                    }
-                    offset += Character.charCount(codePoint);
-                }
+                SDLInputConnection.nativeCommitText(pendingText, 0);
             } else {
-                // Android IME commits must reach Minecraft/mod text fields through GLFW's char callback.
+                // Legacy GLFW renderers must use the GLFW character callback instead of SDL events.
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n') {
@@ -181,6 +181,7 @@ class SDLInputConnection extends BaseInputConnection
                     } else if (Character.isBmpCodePoint(codePoint)) {
                         CallbackBridge.sendCharacterOnly((char) codePoint);
                     } else {
+                        // Keep full Unicode for characters outside the Basic Multilingual Plane.
                         SDLInputConnection.nativeCommitText(
                                 new String(Character.toChars(codePoint)), 0
                         );
