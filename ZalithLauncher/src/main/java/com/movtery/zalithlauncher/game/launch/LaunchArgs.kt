@@ -153,11 +153,26 @@ class LaunchArgs(
         }
     }
 
-    private fun getLWJGL3ClassPath(): String =
-        File(PathManager.DIR_COMPONENTS, "lwjgl3")
-            .listFiles { file -> file.name.endsWith(".jar") }
-            ?.joinToString(":") { it.absolutePath }
-            ?: ""
+    private fun getLWJGL3ClassPath(): String {
+        // Minecraft 26.2+ uses SDL and requires the patched LWJGL 3.4.1 modules.
+        // Keep the legacy LWJGL 3.3.6 bridge isolated for older Minecraft versions.
+        val versionMatch = Regex("""^(\d+)\.(\d+)""").find(gameManifest.id.trim())
+        val major = versionMatch?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+        val minor = versionMatch?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
+        val useLwjgl341 = major > 26 || (major == 26 && minor >= 2)
+        val componentDir = File(
+            PathManager.DIR_COMPONENTS,
+            if (useLwjgl341) "lwjgl3-3.4.1" else "lwjgl3"
+        )
+        val jars = componentDir.listFiles { file -> file.isFile && file.name.endsWith(".jar") }
+            ?.sortedBy { it.name }
+            .orEmpty()
+        Logger.info(
+            TAG,
+            "Using LWJGL classpath for Minecraft ${gameManifest.id}: ${componentDir.name} (${jars.size} jars)"
+        )
+        return jars.joinToString(":") { it.absolutePath }
+    }
 
     private fun getJavaArgs(): List<String> {
         val argsList: MutableList<String> = ArrayList()

@@ -20,10 +20,23 @@ package com.movtery.zalithlauncher.components
 
 import com.movtery.zalithlauncher.R
 
-enum class Components(val component: String, val displayName: String, val summary: Int) {
+enum class Components(
+    val component: String,
+    val displayName: String,
+    val summary: Int,
+    val assetsDir: String = "components/$component",
+    val excludedAssetDirs: Set<String> = emptySet()
+) {
     AUTH_LIBS("auth_libs", "authlib-injector", R.string.unpack_screen_authlib_injector),
     CACIOCAVALLO("caciocavallo", "caciocavallo", R.string.unpack_screen_cacio),
     CACIOCAVALLO17("caciocavallo17", "caciocavallo 17", R.string.unpack_screen_cacio),
     LWJGL3("lwjgl3", "LWJGL 3.3.6", R.string.unpack_screen_lwjgl),
+    LWJGL3_4_1(
+        "lwjgl3-3.4.1",
+        "LWJGL 3.4.1 (Minecraft 26.2+)",
+        R.string.unpack_screen_lwjgl,
+        assetsDir = "app_runtime/lwjgl/3.4.1",
+        excludedAssetDirs = setOf("natives")
+    ),
     LAUNCHER("launcher", "Launcher Components", R.string.unpack_screen_launcher)
 }
