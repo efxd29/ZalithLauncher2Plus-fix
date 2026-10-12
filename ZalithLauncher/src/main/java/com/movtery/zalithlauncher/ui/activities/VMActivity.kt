@@ -24,7 +24,11 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.SurfaceTexture
+import android.hardware.display.DisplayManager
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.Display
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.Surface
@@ -379,6 +383,29 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     /** View used to locate the layout hosting SDL's text input bridge. */
     private var gameSurfaceView: View? = null
 
+    /** Active game surface kept for Android's display refresh-rate vote. */
+    private var gameSurface: Surface? = null
+    private var requestedRefreshRate = 0f
+
+    private val displayListener = object : DisplayManager.DisplayListener {
+        private var lastRequestAt = 0L
+
+        override fun onDisplayAdded(displayId: Int) {}
+
+        override fun onDisplayRemoved(displayId: Int) {}
+
+        override fun onDisplayChanged(displayId: Int) {
+            if (SystemClock.uptimeMillis() - lastRequestAt < 1000L) return
+            val display = currentDisplay() ?: return
+            if (display.displayId != displayId ||
+                requestedRefreshRate <= 0f ||
+                display.mode.refreshRate >= requestedRefreshRate - 0.1f
+            ) return
+            lastRequestAt = SystemClock.uptimeMillis()
+            applyMaxRefreshRatePolicy()
+        }
+    }
+
     private var applySizeToSurface: ((width: Int, height: Int) -> Unit)? = null
 
     private inline fun <T> withHandler(block: AbstractHandler.() -> T): T {
@@ -447,6 +474,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) // 防止系统息屏
         }
 
+        getSystemService(DisplayManager::class.java)?.registerDisplayListener(displayListener, null)
+        applyMaxRefreshRatePolicy()
+
         val logFile = withLauncher { getLogFile() }
         logFile.parentFile?.mkdirs() // 换过一次日志文件路径，此处创建父目录是必要的
         if (!logFile.exists() && !logFile.createNewFile()) throw IOException("Failed to create a new log file")
@@ -507,6 +537,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         setContent {
             ZalithLauncherTheme {
                 ObserveFullScreenSetting(AllSettings.gameFullScreen.state)
+                LaunchedEffect(Unit) {
+                    applyMaxRefreshRatePolicy()
+                }
                 Screen {
                     withHandler {
                         ComposableLayout(vmViewModel.textInputMode)
@@ -636,6 +669,8 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onDestroy() {
+        getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(displayListener)
+        gameSurface = null
         GameSurfaceRegistry.unregister()
         stopAllService()
         withHandler { onDestroy() }
@@ -717,8 +752,55 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         this, flags, title, message, buttonFlags, buttonIds, buttonTexts, colors
     )
 
+    /**
+     * Ask Android to use the highest refresh rate available at the current display resolution.
+     * Re-apply the vote when Android silently drops the display mode during gameplay.
+     */
+    private fun applyMaxRefreshRatePolicy() {
+        val display = currentDisplay() ?: return
+        val best = maxRefreshRateMode(display)
+        requestedRefreshRate = best.refreshRate
+        setPreferredDisplayModeId(best.modeId)
+        voteMaxDisplayRefreshRate()
+    }
+
+    private fun currentDisplay(): Display? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display
+        else @Suppress("DEPRECATION") windowManager.defaultDisplay
+    }
+
+    private fun maxRefreshRateMode(display: Display): Display.Mode {
+        val current = display.mode
+        return display.supportedModes.fold(current) { best, mode ->
+            if (mode.physicalWidth == current.physicalWidth &&
+                mode.physicalHeight == current.physicalHeight &&
+                mode.refreshRate > best.refreshRate
+            ) mode else best
+        }
+    }
+
+    private fun voteMaxDisplayRefreshRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val surface = gameSurface ?: return
+        val display = currentDisplay() ?: return
+        surface.setFrameRate(
+            maxRefreshRateMode(display).refreshRate,
+            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+            Surface.CHANGE_FRAME_RATE_ALWAYS
+        )
+    }
+
+    private fun setPreferredDisplayModeId(modeId: Int) {
+        val attributes = window.attributes
+        if (attributes.preferredDisplayModeId == modeId) return
+        attributes.preferredDisplayModeId = modeId
+        window.attributes = attributes
+    }
+
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
         val nativeSurface = Surface(surface)
+        gameSurface = nativeSurface
+        applyMaxRefreshRatePolicy()
         SdlBridge.prepareSurface(this, nativeSurface, gameSurfaceView?.parent as? ViewGroup, surface)
         //游戏请求 GLFW direct gamepad 时的通知接收方
         CallbackBridge.setDirectGamepadEnableHandler {
@@ -752,6 +834,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        gameSurface = null
         val nativeSurface = SDLSurface.getNativeSurface()
         if (SdlBridge.beginSurfaceDestroy(surface, nativeSurface)) {
             if (SdlBridge.sdlEnabled) {
@@ -778,6 +861,8 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         surfaceGeneration++
         pendingNewSurface?.complete(holder.surface)
         val surface = holder.surface
+        gameSurface = surface
+        applyMaxRefreshRatePolicy()
         SdlBridge.prepareSurface(this, surface, gameSurfaceView?.parent as? ViewGroup, holder)
         if (vmViewModel.isRunning) {
             ZLBridge.setupBridgeWindow(holder.surface)
@@ -817,6 +902,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
+        gameSurface = null
         val nativeSurface = holder.surface
         if (SdlBridge.beginSurfaceDestroy(holder, nativeSurface)) {
             if (SdlBridge.sdlEnabled) {

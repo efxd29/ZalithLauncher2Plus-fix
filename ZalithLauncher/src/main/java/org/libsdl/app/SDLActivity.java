@@ -1471,6 +1471,21 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             return;
         }
         try {
+            // The launcher's custom text bar bypasses SDLInputConnection.updateText().
+            // Mirror SDL's Android IME behavior here so printable ASCII also reaches mods
+            // that react to SDL key events, while the text event still feeds chat/text fields.
+            if (!dispatchingKeyEvent()) {
+                for (int offset = 0; offset < text.length(); ) {
+                    int codePoint = text.codePointAt(offset);
+                    if (codePoint == '\n' && onNativeSoftReturnKey()) {
+                        return;
+                    }
+                    if (codePoint > 0 && codePoint < 128) {
+                        SDLInputConnection.nativeGenerateScancodeForUnichar((char) codePoint);
+                    }
+                    offset += Character.charCount(codePoint);
+                }
+            }
             SDLInputConnection.nativeCommitText(text, 1);
         } catch (UnsatisfiedLinkError ignored) {
         }

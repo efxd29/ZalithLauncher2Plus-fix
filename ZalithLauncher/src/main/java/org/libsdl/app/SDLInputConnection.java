@@ -148,15 +148,22 @@ class SDLInputConnection extends BaseInputConnection
                 // Match SDL's Android IME contract: commit the complete text to SDL directly.
                 // Routing each character through the launcher wrapper can drop input when the
                 // launcher/game text-input states change between composing and commit callbacks.
-                if (!SDLActivity.dispatchingKeyEvent()) {
-                    for (offset = 0; offset < pendingText.length(); ) {
-                        int codePoint = pendingText.codePointAt(offset);
-                        if (codePoint == '\n' && SDLActivity.onNativeSoftReturnKey()) {
-                            mCommittedText = text;
-                            return;
-                        }
-                        offset += Character.charCount(codePoint);
+                boolean dispatchingKeyEvent = SDLActivity.dispatchingKeyEvent();
+                for (offset = 0; offset < pendingText.length(); ) {
+                    int codePoint = pendingText.codePointAt(offset);
+                    if (codePoint == '\n' && !dispatchingKeyEvent
+                            && SDLActivity.onNativeSoftReturnKey()) {
+                        mCommittedText = text;
+                        return;
                     }
+                    // SDL's Android input contract sends both the printable key event and the
+                    // text event for IME input. Mods/config fields often consume key events,
+                    // while chat consumes text events. Do not synthesize a second key for
+                    // physical keys that are already being dispatched by SDLActivity.
+                    if (!dispatchingKeyEvent && codePoint > 0 && codePoint < 128) {
+                        nativeGenerateScancodeForUnichar((char) codePoint);
+                    }
+                    offset += Character.charCount(codePoint);
                 }
                 SDLInputConnection.nativeCommitText(pendingText, 0);
             } else if (SDLActivity.dispatchingKeyEvent()) {
