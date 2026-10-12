@@ -91,7 +91,7 @@ fun SideBar(
     onVersionsClick: () -> Unit,
     onInfoClick: () -> Unit
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(true) }
 
     val contentOffset by animateDpAsState(
         targetValue = if (expanded) 0.dp else (CollapsedWidth - ExpandedWidth),
@@ -106,7 +106,6 @@ fun SideBar(
         modifier = modifier
             .width(ExpandedWidth)
             .fillMaxHeight()
-            .padding(vertical = 8.dp)
     ) {
         Card(
             modifier = Modifier
@@ -270,13 +269,15 @@ private fun SideBarToggle(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            painter = if (expanded) painterResource(R.drawable.ic_arrow_right_rounded)
-                else painterResource(R.drawable.ic_arrow_left_rounded),
-            contentDescription = if (expanded) "Collapse" else "Expand",
-            modifier = Modifier.size(32.dp),
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
+        // Keep the toggle hit target available while expanded, but show the arrow only when collapsed.
+        if (!expanded) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_left_rounded),
+                contentDescription = "Expand",
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
     }
 }
 

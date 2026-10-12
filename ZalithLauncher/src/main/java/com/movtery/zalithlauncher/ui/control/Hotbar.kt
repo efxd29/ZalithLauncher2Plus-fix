@@ -363,6 +363,12 @@ private fun Modifier.mainTouchLogic(
                             }
 
                             val finalSlotIndex = state.currentSlotIndex
+                            // Select immediately on pointer-down; only dispatch again if the finger
+                            // finishes on a different slot. Duplicate down/up key pairs can race in SDL.
+                            if (finalSlotIndex != state.initialSlotIndex) {
+                                onClick(finalSlotIndex)
+                            }
+
                             if (enableDoubleClick) {
                                 val isDoubleTap = lastSlot?.let { last ->
                                     //检查是当前点击的栏位
@@ -379,15 +385,12 @@ private fun Modifier.mainTouchLogic(
                                     onDoubleClick()
                                     lastSlot = null
                                 } else {
-                                    onClick(finalSlotIndex)
-                                    //完成单击后，记录上一次点击的槽位
+                                    // The slot was already selected on pointer-down; only record this tap.
                                     lastSlot = DownSlot(
                                         slot = finalSlotIndex,
                                         downTime = currentTime,
                                     )
                                 }
-                            } else {
-                                onClick(finalSlotIndex)
                             }
 
                             change.consume()
