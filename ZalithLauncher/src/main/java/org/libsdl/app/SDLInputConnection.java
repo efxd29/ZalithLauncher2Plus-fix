@@ -7,6 +7,7 @@ package org.libsdl.app;
 
 import androidx.annotation.Keep;
 
+import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
 import android.text.Editable;
 import android.view.KeyEvent;
 import android.view.View;
@@ -119,26 +120,42 @@ class SDLInputConnection extends BaseInputConnection
         /* FIXME: This doesn't handle graphemes, like '🌬️' */
         for (offset = matchLength; offset < mCommittedText.length(); ) {
             int codePoint = mCommittedText.codePointAt(offset);
-            nativeGenerateScancodeForUnichar('\b');
+            if (SDLActivity.dispatchingKeyEvent()) {
+                nativeGenerateScancodeForUnichar('\b');
+            } else {
+                // IME composition edits must reach the active GLFW text field as well as SDL.
+                LWJGLCharSender.INSTANCE.sendBackspace();
+            }
             offset += Character.charCount(codePoint);
         }
 
         if (matchLength < text.length()) {
             String pendingText = text.subSequence(matchLength, text.length()).toString();
-            if (!SDLActivity.dispatchingKeyEvent()) {
-                //不为输入法提交的文本合成扫描码按键事件：文本经 nativeCommitText
-                //以 SDL_EVENT_TEXT_INPUT 进入游戏，合成按键只会误触游戏绑定
+            if (SDLActivity.dispatchingKeyEvent()) {
+                // Hardware keys still use SDL's native path; don't synthesize a second GLFW char.
+                SDLInputConnection.nativeCommitText(pendingText, 0);
+            } else {
+                // LWJGL's SDL compatibility layer does not consistently deliver SDL text events to
+                // Minecraft/mod GLFW character callbacks. Send characters through the same direct
+                // callback bridge used by the launcher's working text input, without generating
+                // letter key-down events (which could trigger game key bindings).
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n') {
-                        if (SDLActivity.onNativeSoftReturnKey()) {
-                            return;
+                        if (!SDLActivity.onNativeSoftReturnKey()) {
+                            LWJGLCharSender.INSTANCE.sendEnter();
                         }
+                    } else if (Character.isBmpCodePoint(codePoint)) {
+                        LWJGLCharSender.INSTANCE.sendChar((char) codePoint);
+                    } else {
+                        // Preserve supplementary Unicode characters through SDL's native text path.
+                        SDLInputConnection.nativeCommitText(
+                                new String(Character.toChars(codePoint)), 0
+                        );
                     }
                     offset += Character.charCount(codePoint);
                 }
             }
-            SDLInputConnection.nativeCommitText(pendingText, 0);
         }
         mCommittedText = text;
     }
