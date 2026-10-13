@@ -263,7 +263,10 @@ void gl_setup_window() {
 }
 
 void gl_swap_interval(int swapInterval) {
-    // Match the original launcher behavior: always pass Minecraft's requested interval to EGL.
+    const char *renderer = getenv("POJAV_RENDERER");
+    if (renderer && !strcmp(renderer, "opengles3_desktopgl_zink_kopper") && !getenv("POJAV_VSYNC_IN_ZINK")) {
+        return;
+    }
     eglSwapInterval_p(g_EglDisplay, swapInterval);
 }
 
