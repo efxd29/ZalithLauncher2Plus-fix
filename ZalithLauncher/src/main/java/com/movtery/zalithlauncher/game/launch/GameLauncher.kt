@@ -46,6 +46,7 @@ import com.movtery.zalithlauncher.game.renderer.Renderers
 import com.movtery.zalithlauncher.game.renderer.renderers.GL4ESRenderer
 import com.movtery.zalithlauncher.game.renderer.renderers.NGGL4ESRenderer
 import com.movtery.zalithlauncher.game.support.touch_controller.ControllerProxy
+import com.movtery.zalithlauncher.game.sdl.SdlBridge
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionInfoParser
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
@@ -270,6 +271,11 @@ class GameLauncher(
 
         tryStartTouchProxy()
 
+        // Minecraft 26.2+ routes text and input through SDL/LWJGL 3.4.1.
+        // Set this before the game starts so the Android keyboard does not fall back
+        // to the legacy GLFW-only text bridge.
+        SdlBridge.sdlEnabled = isSdlRuntimeVersion()
+
         return launchJvm(
             context = activity,
             jvmArgs = launchArgs,
@@ -284,12 +290,15 @@ class GameLauncher(
      * libraries are extracted beside those jars so the game cannot accidentally
      * load the launcher's older, app-wide LWJGL native binaries first.
      */
-    private fun getLWJGL341NativeDirectory(): File? {
-        val versionMatch = Regex("""^(\d+)\.(\d+)""").find(gameManifest.id.trim()) ?: return null
-        val major = versionMatch.groupValues.getOrNull(1)?.toIntOrNull() ?: return null
-        val minor = versionMatch.groupValues.getOrNull(2)?.toIntOrNull() ?: return null
-        if (major < 26 || (major == 26 && minor < 2)) return null
+    private fun isSdlRuntimeVersion(): Boolean {
+        val versionMatch = Regex("""^(\d+)\.(\d+)""").find(gameManifest.id.trim()) ?: return false
+        val major = versionMatch.groupValues.getOrNull(1)?.toIntOrNull() ?: return false
+        val minor = versionMatch.groupValues.getOrNull(2)?.toIntOrNull() ?: return false
+        return major > 26 || (major == 26 && minor >= 2)
+    }
 
+    private fun getLWJGL341NativeDirectory(): File? {
+        if (!isSdlRuntimeVersion()) return null
         val nativesRoot = File(PathManager.DIR_COMPONENTS, "lwjgl3-3.4.1/natives")
         return Build.SUPPORTED_ABIS.asSequence()
             .map { abi -> File(nativesRoot, abi) }
