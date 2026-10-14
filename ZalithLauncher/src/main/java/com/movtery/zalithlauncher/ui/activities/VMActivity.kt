@@ -120,6 +120,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.libsdl.app.SDLActivity
@@ -197,18 +198,13 @@ class VMViewModel : ViewModel() {
             bundle.getBoolean(INTENT_RUN_GAME) -> {
                 val config: LaunchConfig = bundle.getParcelableSafely(INTENT_GAME_CONFIG, LaunchConfig::class.java)
                     ?: throw IllegalStateException("No launch config has been set.")
+                startPlayTimeTracking(config.version.getVersionName())
 
                 val launcher = GameLauncher(
                     activity = activity,
                     config = config,
                     onExit = { code, isSignal ->
-                        val endTime = System.currentTimeMillis()
-                        val duration = endTime - startTime
-                        if (duration > 0) {
-                            val currentPlayTime = AllSettings.playTime.getValue()
-                            AllSettings.playTime.save(currentPlayTime + duration)
-                            PlayTimeRepository.recordSession(config.version.getVersionName(), startTime, endTime)
-                        }
+                        finishPlayTimeTracking()
 
                         if (code == 0) {
                             val finishedCount = AllSettings.finishedGame.getValue()
@@ -245,16 +241,13 @@ class VMViewModel : ViewModel() {
             bundle.getBoolean(INTENT_RUN_JAR) -> {
                 val jvmLaunchInfo: JvmLaunchInfo = bundle.getParcelableSafely(INTENT_JAR_INFO, JvmLaunchInfo::class.java)
                     ?: throw IllegalStateException("No launch jar info has been set.")
+                startPlayTimeTracking(null)
 
                 val launcher = JvmLauncher(
                     context = activity,
                     jvmLaunchInfo = jvmLaunchInfo,
                     onExit = { code, isSignal ->
-                        val duration = System.currentTimeMillis() - startTime
-                        if (duration > 0) {
-                            val currentPlayTime = AllSettings.playTime.getValue()
-                            AllSettings.playTime.save(currentPlayTime + duration)
-                        }
+                        finishPlayTimeTracking()
                         exitListener(code, isSignal)
                     },
                     openPath = { folder ->
@@ -280,6 +273,40 @@ class VMViewModel : ViewModel() {
             }
             else -> error("Unknown VM launch mode")
         }
+    }
+
+    private var playTimeTrackingActive = false
+    private var trackedVersionName: String? = null
+    private var lastPlayTimeCheckpointElapsedMs = 0L
+
+    @Synchronized
+    private fun startPlayTimeTracking(versionName: String?) {
+        trackedVersionName = versionName
+        lastPlayTimeCheckpointElapsedMs = SystemClock.elapsedRealtime()
+        playTimeTrackingActive = true
+    }
+
+    /** Persist small elapsed-time increments so live stats survive returning to the launcher or a crash. */
+    @Synchronized
+    fun checkpointPlayTime() {
+        if (!playTimeTrackingActive) return
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val deltaMs = nowElapsed - lastPlayTimeCheckpointElapsedMs
+        if (deltaMs <= 0L) return
+
+        lastPlayTimeCheckpointElapsedMs = nowElapsed
+        AllSettings.playTime.save(AllSettings.playTime.getValue() + deltaMs)
+        trackedVersionName?.let { PlayTimeRepository.recordLiveProgress(it, deltaMs) }
+    }
+
+    @Synchronized
+    private fun finishPlayTimeTracking() {
+        if (!playTimeTrackingActive) return
+        checkpointPlayTime()
+        playTimeTrackingActive = false
+        trackedVersionName = null
+        lastPlayTimeCheckpointElapsedMs = 0L
     }
 
     /**
@@ -419,6 +446,13 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            } else {
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            }
+        )
         //加载渲染器
         Renderers.init()
         //加载插件
@@ -460,6 +494,15 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                 }
             }
         )
+
+        // Checkpoint off the UI thread; frequent synchronous MMKV updates can cause
+        // periodic frame pacing hiccups while the game is rendering.
+        lifecycleScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(5_000L)
+                vmViewModel.checkpointPlayTime()
+            }
+        }
 
         //设置画面渲染输出回调
         CallbackBridge.setGraphicOutputListener {
@@ -854,8 +897,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
         if (withHandler { mIsSurfaceDestroyed }) return
-        refreshWindowSize(screenSize = IntSize(width, height))
-    }
+        refreshWindowSize(screenSize = IntSize(width, height))    }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         surfaceGeneration++
