@@ -8,6 +8,7 @@ import android.view.KeyEvent;
 import android.view.inputmethod.InputMethodManager;
 
 import org.libsdl.app.SDLActivity;
+import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,7 +36,11 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     private InputListener mListener;
 
     public void enableKeyboard() {
-        if (SDLActivity.isUsingSDLTextEdit()) {
+        // Select the SDL InputConnection from the renderer mode, not from whether a
+        // dummy SDL editor has already been created. Otherwise the first tap opens the
+        // IME on this EditText and immediately transfers it to SDL, causing a hide/show
+        // race and leaving the next InputConnection unable to receive characters.
+        if (SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()) {
             SDLActivity.enableSDLEditKeyboard();
             return;
         }
@@ -53,6 +58,18 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     }
 
     public void disableKeyboard() {
+        if (SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()) {
+            // The SDL-owned dummy editor owns the IME in this mode. Hiding this invisible
+            // launcher EditText instead leaves SDL's forced text-input channel stale.
+            SDLActivity.disableSDLEditKeyboard();
+            clearFocus();
+            setVisibility(GONE);
+            setEnabled(false);
+            if (sActiveInput == this) {
+                sActiveInput = null;
+            }
+            return;
+        }
         InputMethodManager imm = (InputMethodManager) getContext().getSystemService(INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(getWindowToken(), 0);
         clearFocus();
@@ -97,9 +114,8 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     @Override
     public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
-        if (!hasWindowFocus) {
-            disableKeyboard();
-        }
+        // Do not hide the keyboard merely because Android transfers window focus to the
+        // IME. Some keyboards briefly report this during their opening animation.
     }
 
     /** This function deals with anything that has to be executed when the constructor is called */
