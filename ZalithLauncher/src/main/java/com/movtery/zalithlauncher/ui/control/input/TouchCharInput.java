@@ -40,7 +40,7 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
         // dummy SDL editor has already been created. Otherwise the first tap opens the
         // IME on this EditText and immediately transfers it to SDL, causing a hide/show
         // race and leaving the next InputConnection unable to receive characters.
-        if (SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()) {
+        if (SdlBridge.getSdlEnabled() && SdlBridge.isSdlRenderActive()) {
             SDLActivity.enableSDLEditKeyboard();
             return;
         }
@@ -58,7 +58,7 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     }
 
     public void disableKeyboard() {
-        if (SdlBridge.sdlEnabled && SdlBridge.isSdlRenderActive()) {
+        if (SdlBridge.getSdlEnabled() && SdlBridge.isSdlRenderActive()) {
             // The SDL-owned dummy editor owns the IME in this mode. Hiding this invisible
             // launcher EditText instead leaves SDL's forced text-input channel stale.
             SDLActivity.disableSDLEditKeyboard();
