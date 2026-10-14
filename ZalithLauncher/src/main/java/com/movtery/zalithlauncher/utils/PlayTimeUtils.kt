@@ -20,6 +20,7 @@ package com.movtery.zalithlauncher.utils
 
 import android.content.Context
 import com.movtery.zalithlauncher.R
+import java.util.Locale
 
 object PlayTimeUtils {
     /**
@@ -27,6 +28,19 @@ object PlayTimeUtils {
      */
     fun getPlayHours(playTimeMs: Long): Double {
         return playTimeMs.toDouble() / (1000 * 60 * 60)
+    }
+
+    /** Format a live duration as MM:SS or H:MM:SS. */
+    fun formatClock(playTimeMs: Long): String {
+        val totalSeconds = playTimeMs.coerceAtLeast(0L) / 1_000L
+        val hours = totalSeconds / 3_600L
+        val minutes = (totalSeconds % 3_600L) / 60L
+        val seconds = totalSeconds % 60L
+        return if (hours > 0L) {
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(Locale.US, "%02d:%02d", minutes, seconds)
+        }
     }
 
     /**
