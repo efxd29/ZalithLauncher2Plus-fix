@@ -896,7 +896,9 @@ private fun ChangelogCard(
     var showDialog by remember { mutableStateOf(false) }
 
     val isTurkey = LocalConfiguration.current.locales[0].language == "tr"
-    val changelogUrl = if (isTurkey) CHANGELOGS_UPDATE_TR else CHANGELOGS_URL    LaunchedEffect(Unit) {
+    val changelogUrl = if (isTurkey) CHANGELOGS_UPDATE_TR else CHANGELOGS_URL
+
+    LaunchedEffect(Unit) {
         try {
             val text = withContext(Dispatchers.IO) {
                 java.net.URL(changelogUrl).readText()
