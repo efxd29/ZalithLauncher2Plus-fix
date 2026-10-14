@@ -1,4 +1,5 @@
 name: Build CI
+# One-off CI hook for IME and live statistics verification.
 
 on:
   push:
