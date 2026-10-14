@@ -90,6 +90,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import com.movtery.zalithlauncher.BuildConfig
 import com.movtery.zalithlauncher.BuildKeys
@@ -279,6 +280,7 @@ private fun ContentMenu(
         // Stats grid fills remaining space — no scroll
         StatsGrid(
             modifier = Modifier.weight(1f),
+            isVisible = isVisible,
             onNavigateToStats = onNavigateToStats,
             onNavigateToPlayTimeStats = onNavigateToPlayTimeStats,
             onNavigateToLog = onNavigateToLog
@@ -328,12 +330,22 @@ private const val CHANGELOGS_UPDATE_TR = "https://raw.githubusercontent.com/Star
 @Composable
 private fun StatsGrid(
     modifier: Modifier = Modifier,
+    isVisible: Boolean,
     onNavigateToStats: () -> Unit,
     onNavigateToPlayTimeStats: () -> Unit = {},
     onNavigateToLog: (String) -> Unit,
 ) {
     val versions by VersionsManager.versions.collectAsStateWithLifecycle()
     val versionNames = remember(versions) { versions.map { it.getVersionName() } }
+    var playTimeRefreshTick by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(isVisible) {
+        if (!isVisible) return@LaunchedEffect
+        while (true) {
+            delay(1_000L)
+            playTimeRefreshTick += 1L
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -354,7 +366,8 @@ private fun StatsGrid(
         ) {
             WeeklyPlayTimeChart(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
-                versionNames = versionNames
+                versionNames = versionNames,
+                refreshTick = playTimeRefreshTick
             )
             ChangelogCard(
                 modifier = Modifier.weight(1f).fillMaxHeight()
@@ -369,6 +382,7 @@ private fun StatsGrid(
             DailyPlayTimeCard(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 versionNames = versionNames,
+                refreshTick = playTimeRefreshTick,
                 onClick = onNavigateToPlayTimeStats
             )
             LastLogCard(
@@ -382,9 +396,10 @@ private fun StatsGrid(
 @Composable
 private fun WeeklyPlayTimeChart(
     modifier: Modifier = Modifier,
-    versionNames: List<String>
+    versionNames: List<String>,
+    refreshTick: Long
 ) {
-    val weekData = remember(versionNames) {
+    val weekData = remember(versionNames, refreshTick) {
         val dates = PlayTimeRepository.lastNDays(7).reversed()
         dates.map { date ->
             date to PlayTimeRepository.getDailyTotalPlayTime(date, versionNames)
@@ -476,12 +491,12 @@ private fun WeeklyPlayTimeChart(
 private fun DailyPlayTimeCard(
     modifier: Modifier = Modifier,
     versionNames: List<String>,
+    refreshTick: Long,
     onClick: () -> Unit = {}
 ) {
-    val todayMs = remember(versionNames) {
+    val todayMs = remember(versionNames, refreshTick) {
         PlayTimeRepository.getDailyTotalPlayTime(PlayTimeRepository.today(), versionNames)
     }
-    val hours = PlayTimeUtils.getPlayHours(todayMs)
 
     BackgroundCard(
         modifier = modifier,
@@ -496,7 +511,7 @@ private fun DailyPlayTimeCard(
             ) {
                 Text(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = "%.1f h".format(hours),
+                    text = PlayTimeUtils.formatClock(todayMs),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     fontSize = 26.sp
                 )
@@ -881,9 +896,7 @@ private fun ChangelogCard(
     var showDialog by remember { mutableStateOf(false) }
 
     val isTurkey = LocalConfiguration.current.locales[0].language == "tr"
-    val changelogUrl = if (isTurkey) CHANGELOGS_UPDATE_TR else CHANGELOGS_URL
-
-    LaunchedEffect(Unit) {
+    val changelogUrl = if (isTurkey) CHANGELOGS_UPDATE_TR else CHANGELOGS_URL    LaunchedEffect(Unit) {
         try {
             val text = withContext(Dispatchers.IO) {
                 java.net.URL(changelogUrl).readText()
