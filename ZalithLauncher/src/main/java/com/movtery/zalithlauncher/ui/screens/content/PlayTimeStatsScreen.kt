@@ -32,7 +32,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -50,6 +54,7 @@ import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.utils.PlayTimeUtils
 import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun PlayTimeStatsScreen(
@@ -59,19 +64,27 @@ fun PlayTimeStatsScreen(
         screenKey = NormalNavKey.PlayTimeStats,
         currentKey = backStackViewModel.mainScreen.currentKey
     ) {
+        var playTimeRefreshTick by remember { mutableStateOf(0L) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(1_000L)
+                playTimeRefreshTick += 1L
+            }
+        }
+
         val versions = remember { VersionsManager.versions.value }
         val versionNames = remember(versions) { versions.map { it.getVersionName() } }
 
-        val todayMs = remember(versionNames) {
+        val todayMs = remember(versionNames, playTimeRefreshTick) {
             PlayTimeRepository.getDailyTotalPlayTime(PlayTimeRepository.today(), versionNames)
         }
-        val monthMs = remember(versionNames) {
+        val monthMs = remember(versionNames, playTimeRefreshTick) {
             PlayTimeRepository.getLastNDaysTotal(versionNames, 30)
         }
-        val allTimeMs = remember {
+        val allTimeMs = remember(playTimeRefreshTick) {
             AllSettings.playTime.getValue()
         }
-        val mostPlayed = remember(versionNames) {
+        val mostPlayed = remember(versionNames, playTimeRefreshTick) {
             PlayTimeRepository.getMostPlayedVersion(versionNames)
         }
 
@@ -141,7 +154,7 @@ private fun StatCard(
     modifier: Modifier = Modifier
 ) {
     val hours = PlayTimeUtils.getPlayHours(timeMs)
-    val formattedTime = "%.1f h".format(hours)
+    val formattedTime = PlayTimeUtils.formatClock(timeMs)
 
     BackgroundCard(
         modifier = modifier,
