@@ -31,6 +31,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.InputDevice;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
@@ -1505,12 +1506,18 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if (!SdlBridge.getSdlEnabled()) return false;
         //输入法（软键盘）合成的可打印字符事件不代表游戏按键：
         //不生成 SDL 按键事件，仅在文本通道可接收时转为文本提交
-        if ((event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) != 0 && isTextInputEvent(event)) {
+        boolean softKeyboardEvent = (event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) != 0
+                || event.getDeviceId() == KeyCharacterMap.VIRTUAL_KEYBOARD;
+        if (softKeyboardEvent && isTextInputEvent(event)) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && SdlImeController.isInputAccepted()) {
-                if (ic != null) {
-                    ic.commitText(String.valueOf((char) event.getUnicodeChar()), 1);
-                } else {
-                    SDLInputConnection.nativeCommitText(String.valueOf((char) event.getUnicodeChar()), 1);
+                int codePoint = event.getUnicodeChar();
+                if (codePoint > 0 && !Character.isISOControl(codePoint)) {
+                    String text = new String(Character.toChars(codePoint));
+                    if (ic != null) {
+                        ic.commitText(text, 1);
+                    } else {
+                        onNativeTextInput(text);
+                    }
                 }
             }
             return true;
