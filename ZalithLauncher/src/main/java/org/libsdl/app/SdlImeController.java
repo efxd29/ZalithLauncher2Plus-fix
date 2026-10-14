@@ -112,13 +112,16 @@ final class SdlImeController {
      */
     static void notifyVisibilityChanged(boolean visible) {
         if (!SdlBridge.getSdlEnabled()) return;
+        // Ignore duplicate inset callbacks before checking channel ownership. During IME
+        // animation Android can dispatch several identical "visible" callbacks; scheduling a
+        // hide for every frame makes the keyboard flash and drops the active InputConnection.
+        if (mKeyboardShown == visible) {
+            return;
+        }
         if (visible && isUnwantedImeVisible()) {
             // IME 在通道关闭后自行弹出时强制按回
             Log.w(TAG, "IME: unwanted visibility while text input channel is closed, forcing hide");
             SDLActivity.commandHandler.post(SdlImeController::forceHideIme);
-            return;
-        }
-        if (mKeyboardShown == visible) {
             return;
         }
         mKeyboardShown = visible;
@@ -191,12 +194,10 @@ final class SdlImeController {
         }
 
         InputMethodManager imm = (InputMethodManager) SDLActivity.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.showSoftInput(mEdit, 0);
-        if (imm.isAcceptingText()) {
-            mKeyboardShown = true;
-            Log.i(TAG, "IME: shown by " + source);
-            SDLActivity.onNativeScreenKeyboardShown();
-        }
+        // isAcceptingText() only means an input connection exists; it does not mean that
+        // the keyboard is visible. Let the real WindowInsets.ime visibility callback own
+        // mKeyboardShown so show/hide animation frames cannot desynchronize the state.
+        imm.showSoftInput(mEdit, InputMethodManager.SHOW_IMPLICIT);
     }
 
     private static FrameLayout.LayoutParams makeParams(int x, int y, int w, int h) {
@@ -228,11 +229,8 @@ final class SdlImeController {
             return;
         }
         forceHideIme();
-        if (mKeyboardShown) {
-            mKeyboardShown = false;
-            Log.i(TAG, "IME: hidden");
-            SDLActivity.onNativeScreenKeyboardHidden();
-        }
+        // Do not report "hidden" before Android finishes hiding the IME. The activity's
+        // WindowInsets listener sends the single authoritative visibility transition.
 
         if (!isInputAccepted()) {
             // 部分 IME 会在隐藏后延迟回弹，通道关闭时追加一次压制
