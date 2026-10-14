@@ -31,8 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
@@ -42,7 +40,6 @@ fun HidableInputLayout(
     onBackspace: () -> Unit,
     onEnter: () -> Unit,
     onClose: () -> Unit,
-    keyboardController: SoftwareKeyboardController? = LocalSoftwareKeyboardController.current,
 ) {
     var view by remember { mutableStateOf<TouchCharInput?>(null) }
 
@@ -97,14 +94,14 @@ fun HidableInputLayout(
 
     DisposableEffect(Unit) {
         onDispose {
+            // TouchCharInput owns the correct IME route (SDL or legacy). A second
+            // Compose hide request here races that owner and can make the keyboard blink.
             view?.disableKeyboard()
-            keyboardController?.hide()
             view = null
         }
     }
 
     OnKeyboardClosed {
-        keyboardController?.hide()
         onClose()
     }
 }
