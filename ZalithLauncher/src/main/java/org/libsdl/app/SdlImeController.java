@@ -22,11 +22,14 @@ import static android.text.InputType.TYPE_CLASS_TEXT;
 import static android.text.InputType.TYPE_TEXT_VARIATION_NORMAL;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 
@@ -118,6 +121,10 @@ final class SdlImeController {
             SDLActivity.commandHandler.post(SdlImeController::forceHideIme);
             return;
         }
+        updateKeyboardShown(visible);
+    }
+
+    private static void updateKeyboardShown(boolean visible) {
         if (mKeyboardShown == visible) {
             return;
         }
@@ -190,12 +197,47 @@ final class SdlImeController {
             return;
         }
 
+        requestShowIme(mEdit, 3);
+    }
+
+    private static void requestShowIme(final SDLDummyEdit editor, final int retriesRemaining) {
+        if (editor == null || mEdit != editor || !isInputAccepted()) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsets rootInsets = editor.getRootWindowInsets();
+            if (rootInsets != null && rootInsets.isVisible(WindowInsets.Type.ime())) {
+                updateKeyboardShown(true);
+                return;
+            }
+        }
+
+        if (!editor.isAttachedToWindow() || editor.getWindowToken() == null) {
+            if (retriesRemaining > 0) {
+                editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 60L);
+            }
+            return;
+        }
+
+        if (!editor.hasFocus()) {
+            editor.requestFocus();
+        }
+
         InputMethodManager imm = (InputMethodManager) SDLActivity.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.showSoftInput(mEdit, 0);
-        if (imm.isAcceptingText()) {
-            mKeyboardShown = true;
-            Log.i(TAG, "IME: shown by " + source);
-            SDLActivity.onNativeScreenKeyboardShown();
+        imm.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = editor.getWindowInsetsController();
+            if (controller != null) {
+                controller.show(WindowInsets.Type.ime());
+            }
+        }
+
+        if (retriesRemaining > 0) {
+            editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 120L);
+        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && imm.isAcceptingText()) {
+            updateKeyboardShown(true);
         }
     }
 
@@ -228,11 +270,7 @@ final class SdlImeController {
             return;
         }
         forceHideIme();
-        if (mKeyboardShown) {
-            mKeyboardShown = false;
-            Log.i(TAG, "IME: hidden");
-            SDLActivity.onNativeScreenKeyboardHidden();
-        }
+        updateKeyboardShown(false);
 
         if (!isInputAccepted()) {
             // 部分 IME 会在隐藏后延迟回弹，通道关闭时追加一次压制
