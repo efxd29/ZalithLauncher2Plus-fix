@@ -57,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -90,6 +91,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import com.movtery.zalithlauncher.BuildConfig
 import com.movtery.zalithlauncher.BuildKeys
@@ -332,6 +334,15 @@ private fun StatsGrid(
     onNavigateToPlayTimeStats: () -> Unit = {},
     onNavigateToLog: (String) -> Unit,
 ) {
+    // Periodically reread session checkpoints while the stats screen remains composed.
+    var statsRefresh by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5_000L)
+            statsRefresh++
+        }
+    }
+
     val versions by VersionsManager.versions.collectAsStateWithLifecycle()
     val versionNames = remember(versions) { versions.map { it.getVersionName() } }
 
@@ -354,7 +365,8 @@ private fun StatsGrid(
         ) {
             WeeklyPlayTimeChart(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
-                versionNames = versionNames
+                versionNames = versionNames,
+                refreshKey = statsRefresh
             )
             ChangelogCard(
                 modifier = Modifier.weight(1f).fillMaxHeight()
@@ -369,6 +381,7 @@ private fun StatsGrid(
             DailyPlayTimeCard(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 versionNames = versionNames,
+                refreshKey = statsRefresh,
                 onClick = onNavigateToPlayTimeStats
             )
             LastLogCard(
@@ -382,9 +395,10 @@ private fun StatsGrid(
 @Composable
 private fun WeeklyPlayTimeChart(
     modifier: Modifier = Modifier,
-    versionNames: List<String>
+    versionNames: List<String>,
+    refreshKey: Int
 ) {
-    val weekData = remember(versionNames) {
+    val weekData = remember(versionNames, refreshKey) {
         val dates = PlayTimeRepository.lastNDays(7).reversed()
         dates.map { date ->
             date to PlayTimeRepository.getDailyTotalPlayTime(date, versionNames)
@@ -476,12 +490,14 @@ private fun WeeklyPlayTimeChart(
 private fun DailyPlayTimeCard(
     modifier: Modifier = Modifier,
     versionNames: List<String>,
+    refreshKey: Int,
     onClick: () -> Unit = {}
 ) {
-    val todayMs = remember(versionNames) {
+    val todayMs = remember(versionNames, refreshKey) {
         PlayTimeRepository.getDailyTotalPlayTime(PlayTimeRepository.today(), versionNames)
     }
-    val hours = PlayTimeUtils.getPlayHours(todayMs)
+    val totalMinutes = todayMs.coerceAtLeast(0L) / 60_000L
+    val timeLabel = "${totalMinutes / 60}h ${(totalMinutes % 60).toString().padStart(2, '0')}m"
 
     BackgroundCard(
         modifier = modifier,
@@ -496,7 +512,7 @@ private fun DailyPlayTimeCard(
             ) {
                 Text(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = "%.1f h".format(hours),
+                    text = timeLabel,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     fontSize = 26.sp
                 )
