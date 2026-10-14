@@ -186,10 +186,16 @@ class VMViewModel : ViewModel() {
                 playTimeCheckpointJob = null
             }
             if (endMs > startMs) Triple(versionName, startMs, endMs) else null
-        }
-        interval?.let { (versionName, startMs, endMs0) ->
-            PlayTimeRepository.recordSession(versionName, startMs, endMs0)
-        }
+        } ?: return
+
+        val (versionName, startMs, intervalEndMs) = interval
+        val duration = intervalEndMs - startMs
+        if (duration <= 0L) return
+
+        // Persist global and per-version play time incrementally. This makes stats truly
+        // live and preserves all completed intervals if Android kills the game process.
+        AllSettings.playTime.save(AllSettings.playTime.getValue() + duration)
+        PlayTimeRepository.recordSession(versionName, startMs, intervalEndMs)
     }
 
     /**
@@ -248,11 +254,6 @@ class VMViewModel : ViewModel() {
                     config = config,
                     onExit = { code, isSignal ->
                         val endTime = System.currentTimeMillis()
-                        val duration = endTime - startTime
-                        if (duration > 0) {
-                            val currentPlayTime = AllSettings.playTime.getValue()
-                            AllSettings.playTime.save(currentPlayTime + duration)
-                        }
                         // Store only the unrecorded tail; periodic checkpoints have already
                         // accounted for earlier segments of this session.
                         checkpointPlayTime(endTime, finish = true)
