@@ -6,6 +6,7 @@
 package org.libsdl.app;
 
 import android.text.Editable;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
@@ -56,7 +57,11 @@ class SDLInputConnection extends BaseInputConnection
 //        return super.sendKeyEvent(event);
         // Soft keyboards sometimes deliver a printable KeyEvent instead of commitText().
         // Convert it to text only: do not send a gameplay key-down/up for the same character.
-        if ((event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) != 0 && event.isPrintingKey()) {
+        // Some Android IMEs omit FLAG_SOFT_KEYBOARD but identify their synthetic events
+        // with the virtual keyboard device id. Treat those as text, not gameplay key presses.
+        boolean softKeyboardEvent = (event.getFlags() & KeyEvent.FLAG_SOFT_KEYBOARD) != 0
+                || event.getDeviceId() == KeyCharacterMap.VIRTUAL_KEYBOARD;
+        if (softKeyboardEvent && event.isPrintingKey()) {
             if (event.getAction() == KeyEvent.ACTION_DOWN
                     && !event.isCtrlPressed() && !event.isAltPressed()) {
                 int codePoint = event.getUnicodeChar();
