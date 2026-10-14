@@ -32,7 +32,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -59,19 +64,27 @@ fun PlayTimeStatsScreen(
         screenKey = NormalNavKey.PlayTimeStats,
         currentKey = backStackViewModel.mainScreen.currentKey
     ) {
+        var refreshKey by remember { mutableIntStateOf(0) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(5_000L)
+                refreshKey++
+            }
+        }
+
         val versions = remember { VersionsManager.versions.value }
         val versionNames = remember(versions) { versions.map { it.getVersionName() } }
 
-        val todayMs = remember(versionNames) {
+        val todayMs = remember(versionNames, refreshKey) {
             PlayTimeRepository.getDailyTotalPlayTime(PlayTimeRepository.today(), versionNames)
         }
-        val monthMs = remember(versionNames) {
+        val monthMs = remember(versionNames, refreshKey) {
             PlayTimeRepository.getLastNDaysTotal(versionNames, 30)
         }
-        val allTimeMs = remember {
+        val allTimeMs = remember(refreshKey) {
             AllSettings.playTime.getValue()
         }
-        val mostPlayed = remember(versionNames) {
+        val mostPlayed = remember(versionNames, refreshKey) {
             PlayTimeRepository.getMostPlayedVersion(versionNames)
         }
 
@@ -140,8 +153,8 @@ private fun StatCard(
     subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
-    val hours = PlayTimeUtils.getPlayHours(timeMs)
-    val formattedTime = "%.1f h".format(hours)
+    val totalMinutes = timeMs.coerceAtLeast(0L) / 60_000L
+    val formattedTime = "${totalMinutes / 60} h ${(totalMinutes % 60).toString().padStart(2, '0')} m"
 
     BackgroundCard(
         modifier = modifier,
