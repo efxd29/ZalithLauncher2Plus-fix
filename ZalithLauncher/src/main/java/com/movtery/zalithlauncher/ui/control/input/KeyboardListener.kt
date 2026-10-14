@@ -26,7 +26,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -34,12 +36,18 @@ fun OnKeyboardClosed(
     onClosed: () -> Unit
 ) {
     val imeVisible = WindowInsets.isImeVisible
+    val latestOnClosed by rememberUpdatedState(onClosed)
     var lastImeVisible by remember { mutableStateOf(imeVisible) }
 
     LaunchedEffect(imeVisible) {
-        if (lastImeVisible && !imeVisible) {
-            onClosed()
-        }
+        val wasVisible = lastImeVisible
         lastImeVisible = imeVisible
+        if (wasVisible && !imeVisible) {
+            // Android IMEs can briefly report "hidden" mid-animation. If visibility comes
+            // back during this grace period, LaunchedEffect is cancelled and the input mode
+            // stays alive instead of disposing the active InputConnection.
+            delay(180L)
+            latestOnClosed()
+        }
     }
 }
