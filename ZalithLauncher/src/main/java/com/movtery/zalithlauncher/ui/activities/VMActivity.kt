@@ -166,7 +166,7 @@ class VMViewModel : ViewModel() {
             lastPlayTimeCheckpointMs = sessionStartMs
             playTimeCheckpointJob = viewModelScope.launch(Dispatchers.IO) {
                 while (true) {
-                    delay(5_000L)
+                    delay(1_000L)
                     checkpointPlayTime(System.currentTimeMillis())
                 }
             }
@@ -467,6 +467,15 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         super.onCreate(savedInstanceState)
+        // Keep Android from independently resizing/panning the fullscreen game surface.
+        // The animated IME insets below are the single source of truth for chat positioning.
+        window.setSoftInputMode(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            } else {
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            }
+        )
         //加载渲染器
         Renderers.init()
         //加载插件

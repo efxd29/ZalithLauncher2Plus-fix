@@ -22,11 +22,14 @@ import static android.text.InputType.TYPE_CLASS_TEXT;
 import static android.text.InputType.TYPE_TEXT_VARIATION_NORMAL;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 
@@ -193,11 +196,55 @@ final class SdlImeController {
             return;
         }
 
-        InputMethodManager imm = (InputMethodManager) SDLActivity.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        // isAcceptingText() only means an input connection exists; it does not mean that
-        // the keyboard is visible. Let the real WindowInsets.ime visibility callback own
-        // mKeyboardShown so show/hide animation frames cannot desynchronize the state.
-        imm.showSoftInput(mEdit, InputMethodManager.SHOW_IMPLICIT);
+        requestShowIme(mEdit, 3);
+    }
+
+    /**
+     * Show the IME only after the SDL editor is attached, and retry briefly if Android
+     * drops the first request during focus transfer. Real visibility still comes from
+     * the host WindowInsets callback, not InputMethodManager.isAcceptingText().
+     */
+    private static void requestShowIme(final SDLDummyEdit editor, final int retriesRemaining) {
+        if (editor == null || mEdit != editor || !isInputAccepted()) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsets insets = editor.getRootWindowInsets();
+            if (insets != null && insets.isVisible(WindowInsets.Type.ime())) {
+                return;
+            }
+        }
+
+        if (!editor.isAttachedToWindow() || editor.getWindowToken() == null) {
+            if (retriesRemaining > 0) {
+                editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 60L);
+            }
+            return;
+        }
+
+        if (!editor.hasFocus()) {
+            editor.requestFocus();
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = editor.getWindowInsetsController();
+            if (controller != null) {
+                controller.show(WindowInsets.Type.ime());
+            } else {
+                InputMethodManager imm = (InputMethodManager) SDLActivity.getContext()
+                        .getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+            }
+        } else {
+            InputMethodManager imm = (InputMethodManager) SDLActivity.getContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+        }
+
+        if (retriesRemaining > 0) {
+            editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 120L);
+        }
     }
 
     private static FrameLayout.LayoutParams makeParams(int x, int y, int w, int h) {

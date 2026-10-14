@@ -67,7 +67,7 @@ fun PlayTimeStatsScreen(
         var refreshKey by remember { mutableIntStateOf(0) }
         LaunchedEffect(Unit) {
             while (true) {
-                delay(5_000L)
+                delay(1_000L)
                 refreshKey++
             }
         }
@@ -153,8 +153,7 @@ private fun StatCard(
     subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
-    val totalMinutes = timeMs.coerceAtLeast(0L) / 60_000L
-    val formattedTime = "${totalMinutes / 60} h ${(totalMinutes % 60).toString().padStart(2, '0')} m"
+    val formattedTime = PlayTimeUtils.formatClock(timeMs)
 
     BackgroundCard(
         modifier = modifier,

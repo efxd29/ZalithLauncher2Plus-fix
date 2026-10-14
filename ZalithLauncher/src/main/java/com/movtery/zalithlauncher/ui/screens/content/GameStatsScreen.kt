@@ -36,10 +36,14 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.movtery.zalithlauncher.R
@@ -61,12 +65,19 @@ fun GameStatsScreen(
         screenKey = NormalNavKey.GameStats,
         currentKey = backStackViewModel.mainScreen.currentKey
     ) {
-        val context = LocalContext.current
+        var refreshKey by remember { mutableIntStateOf(0) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(1_000L)
+                refreshKey++
+            }
+        }
+
         val versions = remember { VersionsManager.versions.value }
 
         data class VersionStat(val name: String, val version: com.movtery.zalithlauncher.game.version.installed.Version, val totalMs: Long)
 
-        val stats = remember(versions) {
+        val stats = remember(versions, refreshKey) {
             versions
                 .map { v -> VersionStat(v.getVersionName(), v, PlayTimeRepository.getTotalPlayTime(v.getVersionName())) }
                 .sortedByDescending { it.totalMs }
@@ -127,7 +138,7 @@ fun GameStatsScreen(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = PlayTimeUtils.formatPlayTime(context, stat.totalMs),
+                                            text = PlayTimeUtils.formatClock(stat.totalMs),
                                             style = MaterialTheme.typography.labelSmall
                                         )
                                     }

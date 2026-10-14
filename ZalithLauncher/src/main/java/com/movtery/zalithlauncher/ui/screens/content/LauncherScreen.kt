@@ -338,7 +338,7 @@ private fun StatsGrid(
     var statsRefresh by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(5_000L)
+            delay(1_000L)
             statsRefresh++
         }
     }
@@ -496,8 +496,7 @@ private fun DailyPlayTimeCard(
     val todayMs = remember(versionNames, refreshKey) {
         PlayTimeRepository.getDailyTotalPlayTime(PlayTimeRepository.today(), versionNames)
     }
-    val totalMinutes = todayMs.coerceAtLeast(0L) / 60_000L
-    val timeLabel = "${totalMinutes / 60}h ${(totalMinutes % 60).toString().padStart(2, '0')}m"
+    val timeLabel = PlayTimeUtils.formatClock(todayMs)
 
     BackgroundCard(
         modifier = modifier,
