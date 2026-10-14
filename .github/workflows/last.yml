@@ -8,6 +8,15 @@ on:
       - release-26.3-arm64
     paths:
       - '.github/workflows/last.yml'
+      - 'ZalithLauncher/src/main/java/com/movtery/zalithlauncher/game/version/installed/PlayTimeRepository.kt'
+      - 'ZalithLauncher/src/main/java/com/movtery/zalithlauncher/ui/activities/VMActivity.kt'
+      - 'ZalithLauncher/src/main/java/com/movtery/zalithlauncher/ui/screens/content/GameStatsScreen.kt'
+      - 'ZalithLauncher/src/main/java/com/movtery/zalithlauncher/ui/screens/content/LauncherScreen.kt'
+      - 'ZalithLauncher/src/main/java/com/movtery/zalithlauncher/ui/screens/content/PlayTimeStatsScreen.kt'
+      - 'ZalithLauncher/src/main/java/com/movtery/zalithlauncher/utils/PlayTimeUtils.kt'
+      - 'ZalithLauncher/src/main/java/org/libsdl/app/SDLActivity.java'
+      - 'ZalithLauncher/src/main/java/org/libsdl/app/SDLInputConnection.java'
+      - 'ZalithLauncher/src/main/java/org/libsdl/app/SdlImeController.java'
 
 permissions:
   contents: write
