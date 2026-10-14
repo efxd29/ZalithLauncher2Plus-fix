@@ -56,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -63,6 +64,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CompletableDeferred
 import androidx.lifecycle.lifecycleScope
@@ -115,6 +117,7 @@ import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import com.movtery.zalithlauncher.viewmodel.GamepadViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -148,6 +151,46 @@ data class LaunchSession(
 class VMViewModel : ViewModel() {
     var isRunning = false
     var startTime = 0L
+
+    // Persist play-time checkpoints while the game is still running. Recording only in
+    // onExit made daily/week stats look frozen and lost the current session until exit.
+    private val playTimeTrackingLock = Any()
+    private var trackedPlayTimeVersion: String? = null
+    private var lastPlayTimeCheckpointMs = 0L
+    private var playTimeCheckpointJob: Job? = null
+
+    private fun startPlayTimeTracking(versionName: String, sessionStartMs: Long) {
+        synchronized(playTimeTrackingLock) {
+            playTimeCheckpointJob?.cancel()
+            trackedPlayTimeVersion = versionName
+            lastPlayTimeCheckpointMs = sessionStartMs
+            playTimeCheckpointJob = viewModelScope.launch(Dispatchers.IO) {
+                while (true) {
+                    delay(5_000L)
+                    checkpointPlayTime(System.currentTimeMillis())
+                }
+            }
+        }
+    }
+
+    private fun checkpointPlayTime(endMs: Long, finish: Boolean = false) {
+        val interval = synchronized(playTimeTrackingLock) {
+            val versionName = trackedPlayTimeVersion ?: return@synchronized null
+            val startMs = lastPlayTimeCheckpointMs
+            if (endMs > startMs) {
+                lastPlayTimeCheckpointMs = endMs
+            }
+            if (finish) {
+                trackedPlayTimeVersion = null
+                playTimeCheckpointJob?.cancel()
+                playTimeCheckpointJob = null
+            }
+            if (endMs > startMs) Triple(versionName, startMs, endMs) else null
+        }
+        interval?.let { (versionName, startMs, endMs0) ->
+            PlayTimeRepository.recordSession(versionName, startMs, endMs0)
+        }
+    }
 
     /**
      * 是否允许VMActivity处理按键
@@ -198,6 +241,8 @@ class VMViewModel : ViewModel() {
                 val config: LaunchConfig = bundle.getParcelableSafely(INTENT_GAME_CONFIG, LaunchConfig::class.java)
                     ?: throw IllegalStateException("No launch config has been set.")
 
+                startPlayTimeTracking(config.version.getVersionName(), startTime)
+
                 val launcher = GameLauncher(
                     activity = activity,
                     config = config,
@@ -207,8 +252,10 @@ class VMViewModel : ViewModel() {
                         if (duration > 0) {
                             val currentPlayTime = AllSettings.playTime.getValue()
                             AllSettings.playTime.save(currentPlayTime + duration)
-                            PlayTimeRepository.recordSession(config.version.getVersionName(), startTime, endTime)
                         }
+                        // Store only the unrecorded tail; periodic checkpoints have already
+                        // accounted for earlier segments of this session.
+                        checkpointPlayTime(endTime, finish = true)
 
                         if (code == 0) {
                             val finishedCount = AllSettings.finishedGame.getValue()
@@ -919,6 +966,16 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     ) {
         val imeInsets = WindowInsets.ime
         val inputArea by withHandler { inputArea }.collectAsStateWithLifecycle()
+        val imeHeightPx = imeInsets.getBottom(LocalDensity.current)
+        val imeVisible = imeHeightPx > 0
+        // The SurfaceView/TextureView is not the view receiving IME insets itself, so
+        // forward visibility from the Compose host to SDL's keyboard controller.
+        LaunchedEffect(imeVisible) {
+            SDLActivity.notifyImeVisibilityChanged(imeVisible)
+        }
+        val shouldFollowIme = vmViewModel.textInputMode == TextInputMode.ENABLE ||
+            (SdlBridge.sdlEnabled && SDLActivity.isSDLTextInputActive()) ||
+            !CallbackBridge.isGrabbing()
 
         BoxWithConstraints(
             modifier = Modifier
@@ -941,8 +998,17 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                 modifier = Modifier
                     .fillMaxSize()
                     .absoluteOffset {
-                        val area = inputArea ?: return@absoluteOffset IntOffset.Zero
                         val imeHeight = imeInsets.getBottom(this@absoluteOffset)
+                        if (imeHeight <= 0) return@absoluteOffset IntOffset.Zero
+
+                        if (shouldFollowIme) {
+                            // Move the rendered Minecraft surface with the actual animated IME
+                            // inset, so chat/command input sits directly above a short or tall
+                            // keyboard and returns to its exact original position when hidden.
+                            return@absoluteOffset IntOffset(0, -imeHeight)
+                        }
+
+                        val area = inputArea ?: return@absoluteOffset IntOffset.Zero
                         val bottomDistance = screenSize.height - area.bottom
                         val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
                         IntOffset(0, -bottomPadding)
