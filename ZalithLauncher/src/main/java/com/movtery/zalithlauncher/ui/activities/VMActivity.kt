@@ -897,7 +897,8 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
         if (withHandler { mIsSurfaceDestroyed }) return
-        refreshWindowSize(screenSize = IntSize(width, height))    }
+        refreshWindowSize(screenSize = IntSize(width, height))
+    }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         surfaceGeneration++
