@@ -36,7 +36,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +56,7 @@ import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionIconImage
 import com.movtery.zalithlauncher.utils.PlayTimeUtils
 import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun GameStatsScreen(
@@ -62,11 +67,18 @@ fun GameStatsScreen(
         currentKey = backStackViewModel.mainScreen.currentKey
     ) {
         val context = LocalContext.current
+        var playTimeRefreshTick by remember { mutableStateOf(0L) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(1_000L)
+                playTimeRefreshTick += 1L
+            }
+        }
         val versions = remember { VersionsManager.versions.value }
 
         data class VersionStat(val name: String, val version: com.movtery.zalithlauncher.game.version.installed.Version, val totalMs: Long)
 
-        val stats = remember(versions) {
+        val stats = remember(versions, playTimeRefreshTick) {
             versions
                 .map { v -> VersionStat(v.getVersionName(), v, PlayTimeRepository.getTotalPlayTime(v.getVersionName())) }
                 .sortedByDescending { it.totalMs }
@@ -127,7 +139,7 @@ fun GameStatsScreen(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = PlayTimeUtils.formatPlayTime(context, stat.totalMs),
+                                            text = PlayTimeUtils.formatClock(stat.totalMs),
                                             style = MaterialTheme.typography.labelSmall
                                         )
                                     }
