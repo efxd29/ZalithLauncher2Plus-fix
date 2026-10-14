@@ -68,6 +68,19 @@ object PlayTimeRepository {
             .maxByOrNull { it.second }
     }
 
+    fun recordLiveProgress(versionName: String, durationMs: Long) {
+        if (durationMs <= 0L) return
+
+        val now = Date()
+        val mmkv = launcherMMKV()
+        val totalKey = totalPlayTimeKey(versionName)
+        val todayKey = dailyKey(dateFormat.format(now), versionName)
+        mmkv.putLong(lastPlayedKey(versionName), now.time)
+        mmkv.putLong(totalKey, mmkv.getLong(totalKey, 0L) + durationMs)
+        mmkv.putLong(todayKey, mmkv.getLong(todayKey, 0L) + durationMs)
+        mmkv.apply()
+    }
+
     fun recordSession(versionName: String, sessionStartMs: Long, sessionEndMs: Long) {
         val duration = sessionEndMs - sessionStartMs
         if (duration <= 0) return
