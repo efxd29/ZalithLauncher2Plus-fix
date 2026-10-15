@@ -13,24 +13,29 @@ import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.ProtectionDomain;
+import java.util.ArrayDeque;
 
 /**
- * Runtime-only renderer patch. It modifies the vanilla ChatScreen class in memory;
- * no Minecraft client jar or mods directory is changed.
+ * Moves only the real vanilla ChatScreen extraction/render pass while the Android IME is visible.
+ * No Minecraft client jar is modified and no jar is placed in the Minecraft mods directory.
  */
 public final class ChatImeAgent {
     private static final int MAGIC = 0x5A43494D; // "ZCIM"
     private static volatile MappedByteBuffer state;
     private static volatile long lastMapAttempt;
-    private static final ThreadLocal<Boolean> POINTER_DISPATCH = new ThreadLocal<Boolean>();
-    private static final ThreadLocal<Boolean> POINTER_NEEDS_SHIFT = new ThreadLocal<Boolean>();
     private static FileChannel stateChannel;
     private static RandomAccessFile stateFile;
+    private static volatile boolean loggedFirstShift;
+
+    private static final ThreadLocal<ArrayDeque<Boolean>> RENDER_TRANSFORMS =
+            new ThreadLocal<ArrayDeque<Boolean>>();
+    private static final ThreadLocal<PointerContext> POINTER_CONTEXT =
+            new ThreadLocal<PointerContext>();
 
     private ChatImeAgent() {}
 
     public static void premain(String args, Instrumentation instrumentation) {
-        System.err.println("[ChatImeAgent] installing vanilla chat IME transformer");
+        System.err.println("[ChatImeAgent] installing vanilla ChatScreen IME transform");
         instrumentation.addTransformer(new Transformer(), false);
     }
 
@@ -39,12 +44,15 @@ public final class ChatImeAgent {
         public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                                 ProtectionDomain protectionDomain, byte[] classfileBuffer) {
             if (className == null || classfileBuffer == null) return null;
+
             final boolean chatScreen = isChatScreenName(className);
             final boolean baseScreen = isBaseScreenName(className);
             if (!chatScreen && !baseScreen) return null;
 
             try {
+                final boolean[] transformedAnything = new boolean[] { false };
                 ClassReader reader = new ClassReader(classfileBuffer);
+                // No extra locals or injected branches: existing stack-map frames remain valid.
                 ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
                 ClassVisitor visitor = new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -57,32 +65,40 @@ public final class ChatImeAgent {
 
                         Type[] args = Type.getArgumentTypes(descriptor);
                         boolean renderMethod = chatScreen
-                                && (name.equals("render") || name.equals("extractRenderState"))
+                                && (name.equals("extractRenderState") || name.equals("render"))
                                 && args.length >= 1
                                 && args[0].getSort() == Type.OBJECT
                                 && isGraphicsType(args[0].getInternalName());
                         if (renderMethod) {
+                            transformedAnything[0] = true;
                             return new AdviceAdapter(Opcodes.ASM9, delegate, access, name, descriptor) {
-                                private int transformedLocal = -1;
-
                                 @Override
                                 protected void onMethodEnter() {
                                     loadThis();
                                     loadArg(0);
                                     invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                            new org.objectweb.asm.commons.Method("begin", "(Ljava/lang/Object;Ljava/lang/Object;)Z"));
-                                    transformedLocal = newLocal(Type.BOOLEAN_TYPE);
-                                    storeLocal(transformedLocal);
+                                            new org.objectweb.asm.commons.Method(
+                                                    "beginRender", "(Ljava/lang/Object;Ljava/lang/Object;)V"));
+
+                                    // The GUI is translated upward, so hover/selection coordinates
+                                    // must be translated inversely in the same actual vanilla screen.
+                                    if (args.length >= 3 && args[2].getSort() == Type.INT) {
+                                        loadThis();
+                                        loadArg(2);
+                                        invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
+                                                new org.objectweb.asm.commons.Method(
+                                                        "adjustRenderMouseY", "(Ljava/lang/Object;I)I"));
+                                        storeArg(2);
+                                    }
                                 }
 
                                 @Override
                                 protected void onMethodExit(int opcode) {
-                                    if (transformedLocal < 0) return;
                                     loadThis();
                                     loadArg(0);
-                                    loadLocal(transformedLocal);
                                     invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                            new org.objectweb.asm.commons.Method("end", "(Ljava/lang/Object;Ljava/lang/Object;Z)V"));
+                                            new org.objectweb.asm.commons.Method(
+                                                    "endRender", "(Ljava/lang/Object;Ljava/lang/Object;)V"));
                                 }
                             };
                         }
@@ -91,42 +107,40 @@ public final class ChatImeAgent {
                         boolean numericCoordinates = hasTwoLeadingDoubles(args);
                         if ((chatScreen || baseScreen) && isPointerMethod(name)
                                 && (eventCoordinates || numericCoordinates)) {
+                            transformedAnything[0] = true;
                             return new AdviceAdapter(Opcodes.ASM9, delegate, access, name, descriptor) {
-                                private int ownsDispatchLocal = -1;
-
                                 @Override
                                 protected void onMethodEnter() {
                                     loadThis();
                                     invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                            new org.objectweb.asm.commons.Method("beginPointerDispatch", "(Ljava/lang/Object;)Z"));
-                                    ownsDispatchLocal = newLocal(Type.BOOLEAN_TYPE);
-                                    storeLocal(ownsDispatchLocal);
+                                            new org.objectweb.asm.commons.Method(
+                                                    "beginPointerDispatch", "(Ljava/lang/Object;)V"));
 
-                                    // Helpers consume a one-shot ThreadLocal marker, so inserted bytecode
-                                    // has no new branches/stack-map frames and super-delegation is not shifted twice.
                                     if (eventCoordinates && usesMouseButtonEvent(name)) {
                                         loadThis();
                                         loadArg(0);
                                         invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                                new org.objectweb.asm.commons.Method("shiftMouseEvent", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"));
+                                                new org.objectweb.asm.commons.Method(
+                                                        "shiftMouseEvent",
+                                                        "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"));
                                         checkCast(args[0]);
                                         storeArg(0);
                                     } else if (numericCoordinates) {
                                         loadThis();
                                         loadArg(1);
                                         invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                                new org.objectweb.asm.commons.Method("shiftPointerY", "(Ljava/lang/Object;D)D"));
+                                                new org.objectweb.asm.commons.Method(
+                                                        "shiftPointerY", "(Ljava/lang/Object;D)D"));
                                         storeArg(1);
                                     }
                                 }
 
                                 @Override
                                 protected void onMethodExit(int opcode) {
-                                    if (ownsDispatchLocal < 0) return;
                                     loadThis();
-                                    loadLocal(ownsDispatchLocal);
                                     invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                            new org.objectweb.asm.commons.Method("endPointerDispatch", "(Ljava/lang/Object;Z)V"));
+                                            new org.objectweb.asm.commons.Method(
+                                                    "endPointerDispatch", "(Ljava/lang/Object;)V"));
                                 }
                             };
                         }
@@ -134,7 +148,11 @@ public final class ChatImeAgent {
                     }
                 };
                 reader.accept(visitor, 0);
-                return writer.toByteArray();
+                if (transformedAnything[0]) {
+                    System.err.println("[ChatImeAgent] transformed " + className);
+                    return writer.toByteArray();
+                }
+                return null;
             } catch (Throwable error) {
                 System.err.println("[ChatImeAgent] could not transform " + className + ": " + error);
                 return null;
@@ -152,7 +170,7 @@ public final class ChatImeAgent {
     }
 
     private static boolean isGraphicsType(String name) {
-        // Minecraft 26.3 renamed GuiGraphics to GuiGraphicsExtractor.
+        // MC 26.3 uses GuiGraphicsExtractor + Matrix3x2fStack; older versions use GuiGraphics/PoseStack.
         return name.endsWith("/GuiGraphics") || name.endsWith("/GuiGraphicsExtractor")
                 || name.endsWith("/PoseStack") || name.endsWith("/MatrixStack")
                 || name.endsWith("/DrawContext");
@@ -177,33 +195,93 @@ public final class ChatImeAgent {
         return name.equals("mouseClicked") || name.equals("mouseReleased") || name.equals("mouseDragged");
     }
 
-    /** Prevent double translation when a ChatScreen override delegates to Screen.super. */
-    public static boolean beginPointerDispatch(Object screen) {
-        if (!isChatScreenInstance(screen) || Boolean.TRUE.equals(POINTER_DISPATCH.get())) return false;
-        POINTER_DISPATCH.set(Boolean.TRUE);
-        POINTER_NEEDS_SHIFT.set(Boolean.TRUE);
-        return true;
+    public static void beginRender(Object screen, Object graphics) {
+        ArrayDeque<Boolean> stack = RENDER_TRANSFORMS.get();
+        if (stack == null) {
+            stack = new ArrayDeque<Boolean>();
+            RENDER_TRANSFORMS.set(stack);
+        }
+
+        boolean transformed = false;
+        boolean pushed = false;
+        try {
+            float offset = getOffset(screen);
+            if (offset > 0f && graphics != null) {
+                Object pose = findPose(graphics);
+                if (pose != null) {
+                    invokeNoArgs(pose, "pushPose", "pushMatrix", "push");
+                    pushed = true;
+                    translate(pose, -offset);
+                    transformed = true;
+                    if (!loggedFirstShift) {
+                        loggedFirstShift = true;
+                        System.err.println("[ChatImeAgent] vanilla chat shifted by " + offset + " GUI pixels");
+                    }
+                }
+            }
+        } catch (Throwable error) {
+            if (pushed) {
+                try {
+                    Object pose = findPose(graphics);
+                    if (pose != null) invokeNoArgs(pose, "popPose", "popMatrix", "pop");
+                } catch (Throwable ignored) { }
+            }
+            System.err.println("[ChatImeAgent] beginRender failed: " + error);
+        }
+        stack.push(Boolean.valueOf(transformed));
     }
 
-    public static void endPointerDispatch(Object screen, boolean ownsDispatch) {
-        if (ownsDispatch) {
-            POINTER_NEEDS_SHIFT.remove();
-            POINTER_DISPATCH.remove();
+    public static void endRender(Object screen, Object graphics) {
+        ArrayDeque<Boolean> stack = RENDER_TRANSFORMS.get();
+        if (stack == null || stack.isEmpty()) return;
+        boolean transformed = stack.pop().booleanValue();
+        if (stack.isEmpty()) RENDER_TRANSFORMS.remove();
+        if (!transformed) return;
+        try {
+            Object pose = findPose(graphics);
+            if (pose != null) invokeNoArgs(pose, "popPose", "popMatrix", "pop");
+        } catch (Throwable error) {
+            System.err.println("[ChatImeAgent] endRender failed: " + error);
         }
     }
 
-    private static boolean consumePendingPointerShift() {
-        if (!Boolean.TRUE.equals(POINTER_NEEDS_SHIFT.get())) return false;
-        POINTER_NEEDS_SHIFT.remove();
-        return true;
+    public static int adjustRenderMouseY(Object screen, int originalY) {
+        float offset = getOffset(screen);
+        return offset > 0f ? originalY + Math.round(offset) : originalY;
     }
 
-    /** Minecraft 26.3 passes immutable MouseButtonEvent records rather than raw x/y/button args. */
+    private static final class PointerContext {
+        int depth;
+        boolean shifted;
+    }
+
+    public static void beginPointerDispatch(Object screen) {
+        if (!isChatScreenInstance(screen)) return;
+        PointerContext context = POINTER_CONTEXT.get();
+        if (context == null) {
+            context = new PointerContext();
+            POINTER_CONTEXT.set(context);
+        }
+        if (context.depth == 0) context.shifted = false;
+        context.depth++;
+    }
+
+    public static void endPointerDispatch(Object screen) {
+        PointerContext context = POINTER_CONTEXT.get();
+        if (context == null) return;
+        context.depth--;
+        if (context.depth <= 0) POINTER_CONTEXT.remove();
+    }
+
+    /** MC 26.3 uses immutable MouseButtonEvent values; offset its actual vanilla event. */
     public static Object shiftMouseEvent(Object screen, Object event) {
+        PointerContext context = POINTER_CONTEXT.get();
+        if (!isChatScreenInstance(screen) || context == null || context.shifted) return event;
+        context.shifted = true;
         try {
-            if (event == null || !consumePendingPointerShift()) return event;
             float offset = getOffset(screen);
-            if (offset <= 0f || !event.getClass().getSimpleName().equals("MouseButtonEvent")) return event;
+            if (offset <= 0f || event == null
+                    || !event.getClass().getSimpleName().equals("MouseButtonEvent")) return event;
             Object xValue = invokeNoArgs(event, "x");
             Object yValue = invokeNoArgs(event, "y");
             Object buttonInfo = invokeNoArgs(event, "buttonInfo");
@@ -223,40 +301,11 @@ public final class ChatImeAgent {
         return event;
     }
 
-    /** Push the existing vanilla graphics matrix so all native ChatScreen widgets move together. */
-    public static boolean begin(Object screen, Object graphics) {
-        try {
-            float offset = getOffset(screen);
-            if (offset <= 0f || graphics == null) return false;
-            Object pose = findPose(graphics);
-            if (pose == null) return false;
-            invokeNoArgs(pose, "pushPose", "pushMatrix", "push");
-            translate(pose, -offset);
-            return true;
-        } catch (Throwable error) {
-            System.err.println("[ChatImeAgent] begin failed: " + error);
-            return false;
-        }
-    }
-
-    public static void end(Object screen, Object graphics, boolean transformed) {
-        if (!transformed) return;
-        try {
-            Object pose = findPose(graphics);
-            if (pose != null) invokeNoArgs(pose, "popPose", "popMatrix", "pop");
-        } catch (Throwable error) {
-            System.err.println("[ChatImeAgent] end failed: " + error);
-        }
-    }
-
-    /** Screen pointer coordinates are translated inversely to keep native widget hit targets aligned. */
     public static double shiftPointerY(Object screen, double originalY) {
-        try {
-            if (!consumePendingPointerShift()) return originalY;
-            return originalY + getOffset(screen);
-        } catch (Throwable ignored) {
-            return originalY;
-        }
+        PointerContext context = POINTER_CONTEXT.get();
+        if (!isChatScreenInstance(screen) || context == null || context.shifted) return originalY;
+        context.shifted = true;
+        return originalY + getOffset(screen);
     }
 
     private static boolean isChatScreenInstance(Object value) {
@@ -354,7 +403,6 @@ public final class ChatImeAgent {
                 method.invoke(pose, 0.0f, y, 0.0f);
                 return;
             }
-            // The Minecraft 26.3 Matrix3x2fStack is two-dimensional.
             if (types.length == 2 && types[0] == float.class && types[1] == float.class) {
                 method.invoke(pose, 0.0f, y);
                 return;
