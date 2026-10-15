@@ -46,6 +46,7 @@ import androidx.activity.viewModels
 import androidx.annotation.Keep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -962,6 +963,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         withHandler { mIsSurfaceDestroyed = true }
     }
 
+    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     private fun Screen(
         content: @Composable () -> Unit = {}
@@ -976,7 +978,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             // translate the entire game surface upward.
             val density = LocalDensity.current
             val imeHeight = with(density) {
-                WindowInsets.ime.getBottom(this).toDp()
+                WindowInsets.imeAnimationTarget.getBottom(this).toDp()
             }
             val gameSurfaceHeight = (maxHeight - imeHeight).coerceAtLeast(1.dp)
             val screenSize = rememberBoxSize()
