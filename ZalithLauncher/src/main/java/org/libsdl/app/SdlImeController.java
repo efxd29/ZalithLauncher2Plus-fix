@@ -35,6 +35,7 @@ import android.widget.FrameLayout;
 
 import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 import com.movtery.zalithlauncher.ui.control.input.TouchCharInput;
+import com.movtery.zalithlauncher.ui.control.input.GameInputMirror;
 
 /**
  * SDL 侧软键盘的显式控制器
@@ -51,6 +52,20 @@ final class SdlImeController {
     // 游戏侧通道关闭时由启动器显式唤起输入法代开的 native 文本输入通道
     // 参考 Fold Craft Launcher（https://github.com/FCL-Team/FoldCraftLauncher/blob/cacd666292d9646ceb622c39b82123d8671e5b41/FCL/src/main/java/org/libsdl/app/SdlImeController.java）
     private static boolean mForcedByLauncher;
+    private static boolean mShowRequestPending;
+
+    private static final Runnable COMMIT_KEYBOARD_HIDDEN = SdlImeController::commitKeyboardHidden;
+
+    private static void commitKeyboardHidden() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && mEdit != null) {
+            WindowInsets insets = mEdit.getRootWindowInsets();
+            if (insets != null && insets.isVisible(WindowInsets.Type.ime())) {
+                updateKeyboardShown(true);
+                return;
+            }
+        }
+        updateKeyboardShown(false);
+    }
 
     private SdlImeController() {
     }
@@ -87,6 +102,9 @@ final class SdlImeController {
         mTextInputActive = false;
         mKeyboardShown = false;
         mForcedByLauncher = false;
+        mShowRequestPending = false;
+        SDLActivity.commandHandler.removeCallbacks(COMMIT_KEYBOARD_HIDDEN);
+        GameInputMirror.end();
     }
 
     static void requestShow(Source source) {
@@ -121,7 +139,16 @@ final class SdlImeController {
             SDLActivity.commandHandler.post(SdlImeController::forceHideIme);
             return;
         }
-        updateKeyboardShown(visible);
+        SDLActivity.commandHandler.removeCallbacks(COMMIT_KEYBOARD_HIDDEN);
+        if (visible) {
+            mShowRequestPending = false;
+            updateKeyboardShown(true);
+        } else {
+            // Insets can briefly report hidden while the IME is animating or switching focus.
+            // Keep the shown state for a short grace period so another SDL show callback
+            // cannot restart the keyboard animation.
+            SDLActivity.commandHandler.postDelayed(COMMIT_KEYBOARD_HIDDEN, 280L);
+        }
     }
 
     private static void updateKeyboardShown(boolean visible) {
@@ -171,25 +198,30 @@ final class SdlImeController {
             return;
         }
 
-        if (mEdit == null) {
+        boolean newEditor = mEdit == null;
+        if (newEditor) {
             mEdit = new SDLDummyEdit(SDLActivity.getContext());
             SDLActivity.mLayout.addView(mEdit, makeParams(x, y, w, h));
         } else if (x >= 0 && w > 0) {
             // 仅显式提供区域时更新位置，避免启动器请求覆盖游戏设置的输入框
             mEdit.setLayoutParams(makeParams(x, y, w, h));
         }
+        GameInputMirror.begin();
         mEdit.setInputType(inputType);
         mEdit.setFocusable(true);
         mEdit.setFocusableInTouchMode(true);
 
         mEdit.setVisibility(View.VISIBLE);
-        if (!mEdit.hasFocus()) {
+        boolean focusChanged = !mEdit.hasFocus();
+        if (focusChanged) {
             mEdit.requestFocus();
         }
-        SdlBridge.requestComposeFocus();
+        if (newEditor || focusChanged) {
+            SdlBridge.requestComposeFocus();
+        }
 
-        if (mKeyboardShown) {
-            Log.i(TAG, "IME: already visible, show by " + source + " ignored");
+        if (mKeyboardShown || mShowRequestPending) {
+            Log.i(TAG, "IME: already visible or a show request is pending; duplicate show ignored");
             return;
         }
         if (!autoShow) {
@@ -197,17 +229,20 @@ final class SdlImeController {
             return;
         }
 
-        requestShowIme(mEdit, 3);
+        mShowRequestPending = true;
+        requestShowIme(mEdit, 1);
     }
 
     private static void requestShowIme(final SDLDummyEdit editor, final int retriesRemaining) {
         if (editor == null || mEdit != editor || !isInputAccepted()) {
+            mShowRequestPending = false;
             return;
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowInsets rootInsets = editor.getRootWindowInsets();
             if (rootInsets != null && rootInsets.isVisible(WindowInsets.Type.ime())) {
+                mShowRequestPending = false;
                 updateKeyboardShown(true);
                 return;
             }
@@ -215,7 +250,9 @@ final class SdlImeController {
 
         if (!editor.isAttachedToWindow() || editor.getWindowToken() == null) {
             if (retriesRemaining > 0) {
-                editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 60L);
+                editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 90L);
+            } else {
+                mShowRequestPending = false;
             }
             return;
         }
@@ -227,17 +264,15 @@ final class SdlImeController {
         InputMethodManager imm = (InputMethodManager) SDLActivity.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsController controller = editor.getWindowInsetsController();
-            if (controller != null) {
-                controller.show(WindowInsets.Type.ime());
-            }
-        }
-
+        // IMM is the single show path. Calling WindowInsetsController.show() as well can
+        // restart IME animations on devices whose insets are updated late.
         if (retriesRemaining > 0) {
-            editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 120L);
-        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && imm.isAcceptingText()) {
-            updateKeyboardShown(true);
+            editor.postDelayed(() -> requestShowIme(editor, retriesRemaining - 1), 220L);
+        } else {
+            mShowRequestPending = false;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && imm.isAcceptingText()) {
+                updateKeyboardShown(true);
+            }
         }
     }
 
@@ -258,6 +293,9 @@ final class SdlImeController {
     }
 
     private static void doHide(Source source) {
+        SDLActivity.commandHandler.removeCallbacks(COMMIT_KEYBOARD_HIDDEN);
+        mShowRequestPending = false;
+        GameInputMirror.end();
         if (mForcedByLauncher && source != Source.GAME) {
             // 还原启动器代开的 native 通道（游戏自行关闭时已无需重复操作）
             SdlBridge.setNativeTextInputActive(false);
@@ -279,6 +317,9 @@ final class SdlImeController {
     }
 
     private static void forceHideIme() {
+        SDLActivity.commandHandler.removeCallbacks(COMMIT_KEYBOARD_HIDDEN);
+        mShowRequestPending = false;
+        GameInputMirror.end();
         if (mEdit != null) {
             InputMethodManager imm = (InputMethodManager) SDLActivity.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
             if (mEdit.getWindowToken() != null) {

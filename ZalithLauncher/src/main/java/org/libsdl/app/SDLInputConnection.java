@@ -15,6 +15,7 @@ import android.widget.EditText;
 import androidx.annotation.Keep;
 
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender;
+import com.movtery.zalithlauncher.ui.control.input.GameInputMirror;
 import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 import org.lwjgl.glfw.CallbackBridge;
 
@@ -121,6 +122,7 @@ class SDLInputConnection extends BaseInputConnection
         }
 
         String text = content.toString();
+        GameInputMirror.updateText(text);
         // Soft-IME text must be sent to SDL's text-input queue when Minecraft owns SDL rendering.
         // The GLFW character callback remains the correct route for legacy GLFW-rendered versions.
         boolean sdlRenderActive = SdlBridge.getSdlEnabled() && SdlBridge.isSdlRenderActive();

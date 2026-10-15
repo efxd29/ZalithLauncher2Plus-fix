@@ -45,11 +45,25 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.Keep
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.zIndex
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -104,6 +118,8 @@ import com.movtery.zalithlauncher.ui.base.BaseAppCompatActivity
 import com.movtery.zalithlauncher.ui.base.ObserveFullScreenSetting
 import com.movtery.zalithlauncher.ui.components.rememberBoxSize
 import com.movtery.zalithlauncher.ui.control.input.HidableInputLayout
+import com.movtery.zalithlauncher.ui.control.input.GameInputMirror
+import com.movtery.zalithlauncher.ui.control.input.TouchCharInput
 import com.movtery.zalithlauncher.ui.control.input.TextInputMode
 import com.movtery.zalithlauncher.ui.screens.game.elements.OpenFolderLayer
 import com.movtery.zalithlauncher.ui.screens.game.elements.OpenFolderOperation
@@ -474,23 +490,36 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             eventViewModel = eventViewModel,
             gamepadViewModel = gamepadViewModel,
             exitListener = { exitCode: Int, isSignal: Boolean ->
-                stopAllService()
-                if (exitCode != 0) {
-                    val logPath = withLauncher {
-                        getLogFile().absolutePath
+                // The embedded JVM can finish on a worker thread. Do IME/window cleanup on
+                // Android's main thread before restarting the launcher after a clean quit.
+                runOnUiThread {
+                    vmViewModel.checkpointPlayTime()
+                    GameInputMirror.end()
+                    runCatching { TouchCharInput.disableActiveInput() }
+                    if (SdlBridge.sdlEnabled) {
+                        runCatching { SDLActivity.disableSDLEditKeyboard() }
                     }
-                    showExitMessage(
-                        this@VMActivity,
-                        exitCode,
-                        isSignal,
-                        logPath,
-                        gameHome = getGameHome(),
-                        allocatedRamMb = AllSettings.ramAllocation.getValue() ?: 0,
-                        renderer = AllSettings.renderer.getValue()
-                    )
-                } else {
-                    //重启启动器
-                    ProcessPhoenix.triggerRebirth(this@VMActivity)
+                    stopAllService()
+                    if (exitCode != 0) {
+                        val logPath = withLauncher {
+                            getLogFile().absolutePath
+                        }
+                        showExitMessage(
+                            this@VMActivity,
+                            exitCode,
+                            isSignal,
+                            logPath,
+                            gameHome = getGameHome(),
+                            allocatedRamMb = AllSettings.ramAllocation.getValue() ?: 0,
+                            renderer = AllSettings.renderer.getValue()
+                        )
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        // Let IME hide callbacks and the surface teardown run before ProcessPhoenix.
+                        window.decorView.postDelayed({
+                            ProcessPhoenix.triggerRebirth(this@VMActivity)
+                        }, 220L)
+                    }
                 }
             }
         )
@@ -499,7 +528,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         // periodic frame pacing hiccups while the game is rendering.
         lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
-                delay(1_000L)
+                delay(5_000L)
                 vmViewModel.checkpointPlayTime()
             }
         }
@@ -961,8 +990,6 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         content: @Composable () -> Unit = {}
     ) {
         val imeInsets = WindowInsets.ime
-        val inputArea by withHandler { inputArea }.collectAsStateWithLifecycle()
-
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -981,17 +1008,8 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             }
 
             AndroidView(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .absoluteOffset {
-                        val imeHeight = imeInsets.getBottom(this@absoluteOffset)
-                        // With touch controls, preserve their measured bottom gap. Without
-                        // them, still move the Minecraft framebuffer above the IME so the
-                        // vanilla chat/command bar is not covered by the keyboard.
-                        val bottomDistance = inputArea?.let { screenSize.height - it.bottom } ?: 0
-                        val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
-                        IntOffset(0, -bottomPadding)
-                    },
+                // Never shift the whole Minecraft surface when the IME opens.
+                modifier = Modifier.fillMaxSize(),
                 factory = { context ->
                     val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
                         (!Renderers.isCurrentRendererValid() ||
@@ -1025,6 +1043,51 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             )
 
             content()
+            GameInputMirrorOverlay(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .absoluteOffset { IntOffset(0, -imeInsets.getBottom(this)) }
+                    .zIndex(10f)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GameInputMirrorOverlay(modifier: Modifier = Modifier) {
+    val active by GameInputMirror.active.collectAsStateWithLifecycle()
+    val text by GameInputMirror.text.collectAsStateWithLifecycle()
+    val imeVisible = WindowInsets.isImeVisible
+    var stableImeVisible by remember { mutableStateOf(imeVisible) }
+
+    // Ignore brief false insets while Android animates/transfers IME focus.
+    LaunchedEffect(imeVisible) {
+        if (imeVisible) {
+            stableImeVisible = true
+        } else {
+            delay(280L)
+            stableImeVisible = false
+        }
+    }
+
+    if (active && stableImeVisible) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(34.dp)
+                .background(Color(0xD9000000), RoundedCornerShape(2.dp))
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = if (text.isEmpty()) "▏" else "$text▏",
+                color = Color.White,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Clip
+            )
         }
     }
 }

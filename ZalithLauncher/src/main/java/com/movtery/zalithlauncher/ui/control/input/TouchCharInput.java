@@ -35,6 +35,7 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     private InputListener mListener;
 
     public void enableKeyboard() {
+        GameInputMirror.begin();
         if (SDLActivity.isUsingSDLTextEdit()) {
             SDLActivity.enableSDLEditKeyboard();
             return;
@@ -53,6 +54,7 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     }
 
     public void disableKeyboard() {
+        GameInputMirror.end();
         InputMethodManager imm = (InputMethodManager) getContext().getSystemService(INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(getWindowToken(), 0);
         clearFocus();
@@ -68,6 +70,7 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
      * It does not affect the in-game input
      */
     public void clear() {
+        GameInputMirror.updateText("");
         mIsDoingInternalChanges = true;
         setText(TEXT_FILLER);
         setSelection(TEXT_FILLER.length());
@@ -126,6 +129,9 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
         if (mIsDoingInternalChanges)
             return;
+        // TEXT_FILLER keeps the IME cursor at the end; never render those spacer characters.
+        int mirrorStart = Math.min(TEXT_FILLER.length(), text.length());
+        GameInputMirror.updateText(text.subSequence(mirrorStart, text.length()).toString());
         if (mListener != null) {
             for (int i = 0; i < lengthBefore; ++i) {
                 mListener.onBackspace();

@@ -37,7 +37,12 @@ fun OnKeyboardClosed(
     var lastImeVisible by remember { mutableStateOf(imeVisible) }
 
     LaunchedEffect(imeVisible) {
-        if (lastImeVisible && !imeVisible) {
+        val wasVisible = lastImeVisible
+        if (wasVisible && !imeVisible) {
+            // Some IMEs emit a brief hidden event during show/resize; don't cancel on it.
+            delay(320L)
+        }
+        if (wasVisible && !imeVisible) {
             onClosed()
         }
         lastImeVisible = imeVisible
