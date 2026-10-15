@@ -263,7 +263,13 @@ class LaunchArgs(
 //        }
 
         val varArgMap: MutableMap<String, String> = android.util.ArrayMap()
-        val launchClassPath = "${getLWJGL3ClassPath()}:${generateLaunchClassPath(gameManifest)}"
+        // The transformer's helper must also be visible to the launcher's game ClassLoader,
+        // not only to the system ClassLoader which loads -javaagent.
+        val chatImeAgentClasspath = chatImeAgentPath
+            ?.takeIf { File(it).isFile }
+            ?.let { ":${File(it).absolutePath}" }
+            .orEmpty()
+        val launchClassPath = "${getLWJGL3ClassPath()}:${generateLaunchClassPath(gameManifest)}$chatImeAgentClasspath"
         var hasClasspath = false //是否已经在jvm参数中包含 ${classpath} 配置
 
         varArgMap["classpath_separator"] = ":"
