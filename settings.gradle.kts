@@ -25,7 +25,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ZalithLauncher"
-include(":ChatImeAgent")
 include(":ZalithLauncher")
 include(":LWJGL")
 include(":LWJGL:lwjgl-3.3.3")
