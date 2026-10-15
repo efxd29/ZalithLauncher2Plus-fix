@@ -46,10 +46,7 @@ import androidx.activity.viewModels
 import androidx.annotation.Keep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,10 +54,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,6 +102,7 @@ import com.movtery.zalithlauncher.terracotta.TerracottaVPNService
 import com.movtery.zalithlauncher.ui.base.BaseAppCompatActivity
 import com.movtery.zalithlauncher.ui.base.ObserveFullScreenSetting
 import com.movtery.zalithlauncher.ui.components.rememberBoxSize
+import com.movtery.zalithlauncher.ui.control.input.ChatImeInsetBridge
 import com.movtery.zalithlauncher.ui.control.input.HidableInputLayout
 import com.movtery.zalithlauncher.ui.control.input.TextInputMode
 import com.movtery.zalithlauncher.ui.screens.game.elements.OpenFolderLayer
@@ -419,6 +419,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         super.onCreate(savedInstanceState)
+        installChatImeBridge()
         //加载渲染器
         Renderers.init()
         //加载插件
@@ -913,12 +914,54 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         withHandler { mIsSurfaceDestroyed = true }
     }
 
+    /**
+     * Keep the game window and render surface at their original full-screen bounds.
+     * Only the in-memory vanilla ChatScreen transform consumes this IME geometry.
+     */
+    private fun installChatImeBridge() {
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        ChatImeInsetBridge.initialize(this)
+        val decor = window.decorView
+
+        fun publish(insets: WindowInsetsCompat) {
+            val imeType = WindowInsetsCompat.Type.ime()
+            val physicalHeight = decor.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+            ChatImeInsetBridge.update(
+                visible = insets.isVisible(imeType),
+                imeBottomPx = insets.getInsets(imeType).bottom,
+                physicalHeightPx = physicalHeight
+            )
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(decor) { _, insets ->
+            publish(insets)
+            insets
+        }
+        ViewCompat.setWindowInsetsAnimationCallback(
+            decor,
+            object : WindowInsetsAnimationCompat.Callback(
+                WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE
+            ) {
+                override fun onProgress(
+                    insets: WindowInsetsCompat,
+                    runningAnimations: MutableList<WindowInsetsAnimationCompat>
+                ): WindowInsetsCompat {
+                    publish(insets)
+                    return insets
+                }
+
+                override fun onEnd(animation: WindowInsetsAnimationCompat) {
+                    ViewCompat.requestApplyInsets(decor)
+                }
+            }
+        )
+        decor.post { ViewCompat.requestApplyInsets(decor) }
+    }
+
     @Composable
     private fun Screen(
         content: @Composable () -> Unit = {}
     ) {
-        val imeInsets = WindowInsets.ime
-        val inputArea by withHandler { inputArea }.collectAsStateWithLifecycle()
 
         BoxWithConstraints(
             modifier = Modifier
@@ -940,13 +983,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             AndroidView(
                 modifier = Modifier
                     .fillMaxSize()
-                    .absoluteOffset {
-                        val area = inputArea ?: return@absoluteOffset IntOffset.Zero
-                        val imeHeight = imeInsets.getBottom(this@absoluteOffset)
-                        val bottomDistance = screenSize.height - area.bottom
-                        val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
-                        IntOffset(0, -bottomPadding)
-                    },
+                    ,
                 factory = { context ->
                     val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
                         (!Renderers.isCurrentRendererValid() ||

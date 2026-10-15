@@ -40,6 +40,24 @@ fun getKeyFromLocal(envKey: String, fileName: String? = null, default: String? =
     }
 }
 
+/*
+ * Build the launcher-owned runtime transformer from source and embed it as a private asset.
+ * It is extracted to app-private storage and never installed into Minecraft's mods directory.
+ */
+val syncChatImeAgent = tasks.register("syncChatImeAgent") {
+    dependsOn(":ChatImeAgent:jar")
+    doLast {
+        val source = rootProject.file("ChatImeAgent/build/libs/chat-ime-agent.jar")
+        check(source.isFile) { "Chat IME agent artifact was not built: ${source.absolutePath}" }
+        val target = file("src/main/assets/chatime/chat-ime-agent.jar")
+        target.parentFile.mkdirs()
+        source.copyTo(target, overwrite = true)
+    }
+}
+tasks.named("preBuild").configure {
+    dependsOn(syncChatImeAgent)
+}
+
 android {
     lint {
         // Plus retains translated strings from its added features; unused translations must not block releases.
