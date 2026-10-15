@@ -128,9 +128,7 @@ class ErrorActivity : BaseAppCompatActivity() {
                     message = message,
                     messageBody = messageBody,
                     crashType = CrashType.GAME_CRASH,
-                    logFile = File(crash.logPath).also { file ->
-                        viewModel.check(file)
-                    }
+                    logFile = File(crash.logPath)
                 )
             }
             else -> {
@@ -147,6 +145,7 @@ class ErrorActivity : BaseAppCompatActivity() {
         }
 
         val logFile = errorMessage.logFile
+        viewModel.check(logFile)
         val canRestart: Boolean = extras.getBoolean(BUNDLE_CAN_RESTART, true)
         val logExists = logFile.exists() && logFile.isFile
 
@@ -212,7 +211,10 @@ class ErrorActivity : BaseAppCompatActivity() {
                             }
                         },
                         onUploadClick = {
-                            viewModel.operation = ShareLinkOperation.Tip
+                            viewModel.upload(logFile) { link ->
+                                openLink(link)
+                                copyText(COPY_LABEL_LINK, link, this@ErrorActivity)
+                            }
                         },
                         onRestartClick = {
                             ProcessPhoenix.triggerRebirth(this@ErrorActivity)

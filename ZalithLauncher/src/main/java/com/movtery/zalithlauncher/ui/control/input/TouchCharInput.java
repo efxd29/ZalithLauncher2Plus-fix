@@ -97,9 +97,8 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     @Override
     public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
-        if (!hasWindowFocus) {
-            disableKeyboard();
-        }
+        // Do not hide the IME on window-focus loss: the keyboard itself can cause this
+        // callback on some Android builds, which makes the keyboard open and immediately close.
     }
 
     /** This function deals with anything that has to be executed when the constructor is called */

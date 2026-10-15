@@ -319,7 +319,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 //                y = motionListener.getEventY(event, i);
 //                relative = motionListener.inRelativeMode();
 //
-//                SDLActivity.onNativeMouse(buttonState, action, x, y, relative);
+//                SDLActivity.dispatchNativeMouse(buttonState, action, x, y, relative);
 //            } else if (toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER) {
 //                pointerId = event.getPointerId(i);
 //                x = event.getX(i);
@@ -451,7 +451,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                 case MotionEvent.ACTION_SCROLL:
                     x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, i);
                     y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, i);
-                    SDLActivity.onNativeMouse(0, action, x, y, false);
+                    SDLActivity.dispatchNativeMouse(0, action, x, y, false);
                     return true;
 
                 case MotionEvent.ACTION_HOVER_MOVE:
@@ -482,7 +482,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                         x = event.getX(i);
                         y = event.getY(i);
                     }
-                    SDLActivity.onNativeMouse(0, action, x, y, true);
+                    SDLActivity.dispatchNativeMouse(0, action, x, y, true);
                     return true;
 
                 case MotionEvent.ACTION_DOWN:
@@ -517,7 +517,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                     y = event.getY(i);
                     int button = event.getButtonState();
 
-                    SDLActivity.onNativeMouse(button, action, x, y, true);
+                    SDLActivity.dispatchNativeMouse(button, action, x, y, true);
                     return true;
             }
         }

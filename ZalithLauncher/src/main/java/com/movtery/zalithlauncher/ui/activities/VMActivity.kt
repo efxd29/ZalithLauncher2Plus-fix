@@ -499,7 +499,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         // periodic frame pacing hiccups while the game is rendering.
         lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
-                delay(5_000L)
+                delay(1_000L)
                 vmViewModel.checkpointPlayTime()
             }
         }
@@ -738,7 +738,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         val isPressed = event.action == KeyEvent.ACTION_DOWN
 
         val code = AllSettings.physicalKeyImeCode.state
-        if (isPressed && code != null && event.keyCode == code) {
+        if (isPressed && event.repeatCount == 0 && code != null && event.keyCode == code) {
             //用户按下了绑定呼出输入法的按键
             //开启或关闭输入法
             vmViewModel.textInputMode = vmViewModel.textInputMode.switch()
@@ -984,9 +984,11 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                 modifier = Modifier
                     .fillMaxSize()
                     .absoluteOffset {
-                        val area = inputArea ?: return@absoluteOffset IntOffset.Zero
                         val imeHeight = imeInsets.getBottom(this@absoluteOffset)
-                        val bottomDistance = screenSize.height - area.bottom
+                        // With touch controls, preserve their measured bottom gap. Without
+                        // them, still move the Minecraft framebuffer above the IME so the
+                        // vanilla chat/command bar is not covered by the keyboard.
+                        val bottomDistance = inputArea?.let { screenSize.height - it.bottom } ?: 0
                         val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
                         IntOffset(0, -bottomPadding)
                     },
