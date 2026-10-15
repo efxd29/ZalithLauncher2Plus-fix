@@ -198,11 +198,16 @@ private class ServerListViewModel(
     /**
      * 开始加载服务器列表数据
      */
-    fun loadServer() {
+    fun loadServer(refreshNetwork: Boolean = false) {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
             dataMutex.withLock {
                 loadServerSuspend()
+            }
+            if (refreshNetwork) {
+                withContext(Dispatchers.Main) {
+                    refreshAllServers()
+                }
             }
         }
     }
@@ -261,11 +266,14 @@ private class ServerListViewModel(
         serverName: String,
         serverAddress: String
     ) {
+        val data = ServerData(name = serverName, originIp = serverAddress)
         saveServers(
             reason = "added server",
             beforeSave = {
-                val data = ServerData(name = serverName, originIp = serverAddress)
                 allServers.addServer(data)
+            },
+            afterSave = {
+                loadServer(data)
             }
         )
     }
@@ -346,6 +354,13 @@ private class ServerListViewModel(
         searchJob = viewModelScope.launch {
             val servers = filteredServers()
             _servers.update { servers }
+        }
+    }
+
+    /** Force a fresh network ping for each saved server when the screen is re-entered. */
+    fun refreshAllServers() {
+        allServers.serverList.toList().forEach { server ->
+            loadServer(server, isRefresh = true)
         }
     }
 
@@ -504,6 +519,13 @@ fun ServerListScreen(
             serverData = dataFile,
             version = version
         )
+        LaunchedEffect(isVisible, viewModel) {
+            if (isVisible) {
+                // Reload servers.dat, then ping every entry once. Keying to visibility avoids
+                // a new ping on ordinary recompositions.
+                viewModel.loadServer(refreshNetwork = true)
+            }
+        }
 
         val yOffset by swapAnimateDpAsState(
             targetValue = (-40).dp,
@@ -563,7 +585,7 @@ fun ServerListScreen(
                                 viewModel.dataOperation = ServerDataOperation.AddServer
                             },
                             refreshServers = {
-                                viewModel.loadServer()
+                                viewModel.loadServer(refreshNetwork = true)
                             }
                         )
 
@@ -573,7 +595,6 @@ fun ServerListScreen(
                                 .weight(1f),
                             servers = servers,
                             isSavingServer = viewModel.saving,
-                            onLoad = { viewModel.loadServer(it) },
                             onRefresh = { viewModel.loadServer(it, true) },
                             onCopy = { viewModel.copy(context, it) },
                             onPlay = { address ->
@@ -670,7 +691,6 @@ private fun ServerListHeader(
 private fun ServerListBody(
     servers: List<ServerData>?,
     isSavingServer: Boolean,
-    onLoad: (ServerData) -> Unit,
     onRefresh: (ServerData) -> Unit,
     onCopy: (String) -> Unit,
     onPlay: (String) -> Unit,
@@ -699,7 +719,6 @@ private fun ServerListBody(
                         modifier = Modifier.fillMaxWidth(),
                         item = server,
                         isSavingServer = isSavingServer,
-                        onLoad = { onLoad(server) },
                         onRefresh = { onRefresh(server) },
                         onCopy = { onCopy(server.originIp) },
                         onPlay = { onPlay(server.originIp) },
@@ -733,7 +752,6 @@ private fun ServerListBody(
 private fun ServerItem(
     item: ServerData,
     isSavingServer: Boolean,
-    onLoad: () -> Unit,
     onRefresh: () -> Unit,
     onCopy: () -> Unit,
     onPlay: () -> Unit,
@@ -750,10 +768,6 @@ private fun ServerItem(
     val scale = remember { Animatable(initialValue = 0.95f) }
     LaunchedEffect(Unit) {
         scale.animateTo(targetValue = 1f, animationSpec = getAnimateTween())
-    }
-
-    LaunchedEffect(item) {
-        onLoad()
     }
 
     Surface(

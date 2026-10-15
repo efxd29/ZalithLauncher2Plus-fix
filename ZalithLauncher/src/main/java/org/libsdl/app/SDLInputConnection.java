@@ -6,6 +6,7 @@
 package org.libsdl.app;
 
 import android.text.Editable;
+import android.text.Selection;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
@@ -23,6 +24,9 @@ class SDLInputConnection extends BaseInputConnection
 {
     protected EditText mEditText;
     protected String mCommittedText = "";
+    private int batchEditDepth = 0;
+    private boolean textUpdatePending = false;
+    private int pendingExternalBackspaces = 0;
 
     SDLInputConnection(View targetView, boolean fullEditor) {
         super(targetView, fullEditor);
@@ -78,6 +82,28 @@ class SDLInputConnection extends BaseInputConnection
     }
 
     @Override
+    public boolean beginBatchEdit() {
+        batchEditDepth++;
+        return super.beginBatchEdit();
+    }
+
+    @Override
+    public boolean endBatchEdit() {
+        boolean result = super.endBatchEdit();
+        if (batchEditDepth > 0) batchEditDepth--;
+        if (batchEditDepth == 0) {
+            if (textUpdatePending) {
+                textUpdatePending = false;
+                updateTextNow();
+            }
+            int backspaces = pendingExternalBackspaces;
+            pendingExternalBackspaces = 0;
+            dispatchBackspaces(backspaces);
+        }
+        return result;
+    }
+
+    @Override
     public boolean commitText(CharSequence text, int newCursorPosition) {
         if (!super.commitText(text, newCursorPosition)) {
             return false;
@@ -97,24 +123,69 @@ class SDLInputConnection extends BaseInputConnection
 
     @Override
     public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-        // Workaround to capture backspace key. Ref: http://stackoverflow.com/questions>/14560344/android-backspace-in-webview-baseinputconnection
-        // and https://bugzilla.libsdl.org/show_bug.cgi?id=2265
-        if (beforeLength > 0 && afterLength == 0) {
-            // backspace(s)
-            while (beforeLength-- > 0) {
-                nativeGenerateScancodeForUnichar('\b');
-            }
-            return true;
-       }
-
-        if (!super.deleteSurroundingText(beforeLength, afterLength)) {
-            return false;
-        }
+        Editable content = getEditable();
+        int selectionStart = content == null ? -1 : Selection.getSelectionStart(content);
+        int selectionEnd = content == null ? -1 : Selection.getSelectionEnd(content);
+        int cursor = selectionStart >= 0 && selectionStart == selectionEnd
+                ? selectionStart : (content == null ? 0 : content.length());
+        // The game may already have text (notably the initial '/') before this InputConnection
+        // was created. Delete locally tracked characters through updateText(), and only send
+        // extra backspaces for characters that exist in the game but not in this local buffer.
+        int externalBackspaces = beforeLength > 0 && afterLength == 0
+                ? Math.max(0, beforeLength - Math.max(0, cursor)) : 0;
+        if (!super.deleteSurroundingText(beforeLength, afterLength)) return false;
         updateText();
+        queueExternalBackspaces(externalBackspaces);
         return true;
     }
 
+    @Override
+    public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+        Editable content = getEditable();
+        int selectionStart = content == null ? -1 : Selection.getSelectionStart(content);
+        int selectionEnd = content == null ? -1 : Selection.getSelectionEnd(content);
+        int cursor = selectionStart >= 0 && selectionStart == selectionEnd
+                ? selectionStart : (content == null ? 0 : content.length());
+        String prefix = content == null ? "" : content.subSequence(0, Math.max(0, Math.min(cursor, content.length()))).toString();
+        int availableCodePoints = prefix.codePointCount(0, prefix.length());
+        int externalBackspaces = beforeLength > 0 && afterLength == 0
+                ? Math.max(0, beforeLength - availableCodePoints) : 0;
+        if (!super.deleteSurroundingTextInCodePoints(beforeLength, afterLength)) return false;
+        updateText();
+        queueExternalBackspaces(externalBackspaces);
+        return true;
+    }
+
+    private void queueExternalBackspaces(int count) {
+        if (count <= 0) return;
+        if (batchEditDepth > 0) {
+            pendingExternalBackspaces += count;
+        } else {
+            dispatchBackspaces(count);
+        }
+    }
+
+    private void dispatchBackspaces(int count) {
+        if (count <= 0) return;
+        boolean sdlRenderActive = SdlBridge.getSdlEnabled() && SdlBridge.isSdlRenderActive();
+        for (int i = 0; i < count; i++) {
+            if (SDLActivity.dispatchingKeyEvent() || sdlRenderActive) {
+                nativeGenerateScancodeForUnichar('\b');
+            } else {
+                LWJGLCharSender.INSTANCE.sendBackspace();
+            }
+        }
+    }
+
     protected void updateText() {
+        if (batchEditDepth > 0) {
+            textUpdatePending = true;
+            return;
+        }
+        updateTextNow();
+    }
+
+    private void updateTextNow() {
         final Editable content = getEditable();
         if (content == null) {
             return;
@@ -154,23 +225,33 @@ class SDLInputConnection extends BaseInputConnection
                 // Routing each character through the launcher wrapper can drop input when the
                 // launcher/game text-input states change between composing and commit callbacks.
                 boolean dispatchingKeyEvent = SDLActivity.dispatchingKeyEvent();
+                boolean gameOwnsTextInput = SdlImeController.isGameTextInputActiveForRouting();
+                boolean deferSlashText = !gameOwnsTextInput
+                        && SdlImeController.shouldDelaySlashText(pendingText);
                 for (offset = 0; offset < pendingText.length(); ) {
                     int codePoint = pendingText.codePointAt(offset);
                     if (codePoint == '\n' && !dispatchingKeyEvent
                             && SDLActivity.onNativeSoftReturnKey()) {
+                        // Batch IMEs can commit a command and Enter in one update. Preserve
+                        // the prefix instead of returning before it ever reaches Minecraft.
+                        String prefix = pendingText.substring(0, offset);
+                        if (!prefix.isEmpty()) {
+                            SdlImeController.commitNativeText(prefix, 0,
+                                    deferSlashText && prefix.startsWith("/"));
+                        }
                         mCommittedText = text;
                         return;
                     }
-                    // SDL's Android input contract sends both the printable key event and the
-                    // text event for IME input. Mods/config fields often consume key events,
-                    // while chat consumes text events. Do not synthesize a second key for
-                    // physical keys that are already being dispatched by SDLActivity.
-                    if (!dispatchingKeyEvent && codePoint > 0 && codePoint < 128) {
+                    // Minecraft's active SDL text field consumes SDL text-input events. Sending
+                    // a parallel '/' key after the screen is active can toggle the editor or
+                    // leave the rendered text and the game's input buffer out of sync.
+                    if (!dispatchingKeyEvent && !gameOwnsTextInput && !deferSlashText
+                            && codePoint > 0 && codePoint < 128) {
                         nativeGenerateScancodeForUnichar((char) codePoint);
                     }
                     offset += Character.charCount(codePoint);
                 }
-                SDLInputConnection.nativeCommitText(pendingText, 0);
+                SdlImeController.commitNativeText(pendingText, 0, deferSlashText);
             } else if (SDLActivity.dispatchingKeyEvent()) {
                 // Preserve SDL's own key/text route for a key event delivered by the active editor.
                 for (offset = 0; offset < pendingText.length(); ) {

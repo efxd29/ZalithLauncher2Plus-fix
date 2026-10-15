@@ -452,7 +452,10 @@ class MainActivity : BaseAppCompatActivity() {
                         },
                         canUpload = logsUploadViewModel.canUpload,
                         onUpload = {
-                            logsUploadViewModel.operation = ShareLinkOperation.Tip
+                            logsUploadViewModel.upload(logFile) { link ->
+                                openLink(link)
+                                copyText(COPY_LABEL_LINK, link, this@MainActivity)
+                            }
                             logShareViewModel.closeMenu()
                         }
                     )

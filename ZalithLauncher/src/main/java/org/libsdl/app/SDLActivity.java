@@ -351,6 +351,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     }
 
     public static void externalInitialize(SDLSurface surface, ViewGroup layout, Surface nativeSurface) {
+        nativeMouseCallbackAvailable = true;
         // Note: This doesn't dlopen it for the mod, they still have to do it themselves
         // Why? https://github.com/android/ndk/issues/201#issuecomment-248060092
         // Just in case that gets deleted off the internet:
@@ -1128,6 +1129,23 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static native void onNativeKeyUp(int keycode);
     public static native boolean onNativeSoftReturnKey();
     public static native void onNativeKeyboardFocusLost();
+    private static volatile boolean nativeMouseCallbackAvailable = true;
+
+    /**
+     * Deliver SDL mouse input when the loaded native SDL build implements this callback.
+     * Some bundled SDL/LWJGL combinations omit this JNI entry point; never let that
+     * optional forwarding path crash the launcher (the GLFW callback was sent first).
+     */
+    public static void dispatchNativeMouse(int button, int action, float x, float y, boolean relative) {
+        if (!nativeMouseCallbackAvailable) return;
+        try {
+            onNativeMouse(button, action, x, y, relative);
+        } catch (UnsatisfiedLinkError unavailable) {
+            nativeMouseCallbackAvailable = false;
+            Log.e(TAG, "SDLActivity native mouse callback is unavailable; retaining GLFW input fallback");
+        }
+    }
+
     public static native void onNativeMouse(int button, int action, float x, float y, boolean relative);
     public static native void onNativeTouch(int touchDevId, int pointerFingerId,
                                             int action, float x,
@@ -1472,22 +1490,30 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             return;
         }
         try {
-            // The launcher's custom text bar bypasses SDLInputConnection.updateText().
-            // Mirror SDL's Android IME behavior here so printable ASCII also reaches mods
-            // that react to SDL key events, while the text event still feeds chat/text fields.
-            if (!dispatchingKeyEvent()) {
+            // The launcher's text bar can feed a Minecraft-owned SDL field or a launcher-forced
+            // field used for key bindings. Only the latter needs synthetic printable key events.
+            boolean dispatchingKeyEvent = dispatchingKeyEvent();
+            boolean gameOwnsTextInput = SdlImeController.isGameTextInputActiveForRouting();
+            boolean deferSlashText = !gameOwnsTextInput
+                    && SdlImeController.shouldDelaySlashText(text);
+            if (!dispatchingKeyEvent && !gameOwnsTextInput) {
                 for (int offset = 0; offset < text.length(); ) {
                     int codePoint = text.codePointAt(offset);
                     if (codePoint == '\n' && onNativeSoftReturnKey()) {
+                        String prefix = text.substring(0, offset);
+                        if (!prefix.isEmpty()) {
+                            SdlImeController.commitNativeText(prefix, 1,
+                                    deferSlashText && prefix.startsWith("/"));
+                        }
                         return;
                     }
-                    if (codePoint > 0 && codePoint < 128) {
+                    if (!deferSlashText && codePoint > 0 && codePoint < 128) {
                         SDLInputConnection.nativeGenerateScancodeForUnichar((char) codePoint);
                     }
                     offset += Character.charCount(codePoint);
                 }
             }
-            SDLInputConnection.nativeCommitText(text, 1);
+            SdlImeController.commitNativeText(text, 1, deferSlashText);
         } catch (UnsatisfiedLinkError ignored) {
         }
     }
