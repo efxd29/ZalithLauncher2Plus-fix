@@ -26,7 +26,7 @@ tasks.jar {
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from({
-        configurations.runtimeClasspath.files.map { dependency ->
+        configurations.getByName("runtimeClasspath").files.map { dependency ->
             if (dependency.isDirectory) dependency else zipTree(dependency)
         }
     })
