@@ -102,6 +102,18 @@ class GameLauncher(
         offlineServer.stop()
     }
 
+    private fun prepareChatImeAgent(): String? {
+        return runCatching {
+            val target = File(activity.filesDir, "chat-ime-agent.jar")
+            activity.assets.open("chatime/chat-ime-agent.jar").use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+            target.absolutePath
+        }.onFailure {
+            Logger.warning(TAG, "Failed to prepare launcher-owned vanilla chat IME agent; continuing without it", it)
+        }.getOrNull()
+    }
+
     override suspend fun launch(screenSize: IntSize): Int {
         if (!Renderers.isCurrentRendererValid()) {
             Renderers.setCurrentRenderer(version.getRenderer())
@@ -254,6 +266,7 @@ class GameLauncher(
 
         //初始化运行环境
         this.runtime = runtime
+        val chatImeAgentPath = prepareChatImeAgent()
         val launchArgs = LaunchArgs(
             runtimeLibraryPath = getRuntimeLibraryPath(),
             account = usingAccount,
@@ -266,7 +279,8 @@ class GameLauncher(
             readAssetsFile = { path -> activity.readAssetFile(path) },
             getCacioJavaArgs = { isJava8 ->
                 getCacioJavaArgs(screenSize, isJava8)
-            }
+            },
+            chatImeAgentPath = chatImeAgentPath
         ).getAllArgs()
 
         tryStartTouchProxy()
