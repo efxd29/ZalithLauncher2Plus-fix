@@ -46,8 +46,8 @@ public final class ChatImeAgent {
             if (className == null || classfileBuffer == null) return null;
 
             final boolean chatScreen = isChatScreenName(className);
-            final boolean baseScreen = isBaseScreenName(className);
-            if (!chatScreen && !baseScreen) return null;
+            // Only modify ChatScreen/GUIScreen. The parent Screen class remains byte-for-byte untouched.
+            if (!chatScreen) return null;
 
             try {
                 final boolean[] transformedAnything = new boolean[] { false };
@@ -105,7 +105,7 @@ public final class ChatImeAgent {
 
                         boolean eventCoordinates = hasMouseButtonEvent(args);
                         boolean numericCoordinates = hasTwoLeadingDoubles(args);
-                        if ((chatScreen || baseScreen) && isPointerMethod(name)
+                        if (chatScreen && isPointerMethod(name)
                                 && (eventCoordinates || numericCoordinates)) {
                             transformedAnything[0] = true;
                             return new AdviceAdapter(Opcodes.ASM9, delegate, access, name, descriptor) {
