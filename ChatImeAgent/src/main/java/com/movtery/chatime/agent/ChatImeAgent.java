@@ -23,6 +23,7 @@ public final class ChatImeAgent {
     private static volatile MappedByteBuffer state;
     private static volatile long lastMapAttempt;
     private static final ThreadLocal<Boolean> POINTER_DISPATCH = new ThreadLocal<Boolean>();
+    private static final ThreadLocal<Boolean> POINTER_NEEDS_SHIFT = new ThreadLocal<Boolean>();
     private static FileChannel stateChannel;
     private static RandomAccessFile stateFile;
 
@@ -101,9 +102,8 @@ public final class ChatImeAgent {
                                     ownsDispatchLocal = newLocal(Type.BOOLEAN_TYPE);
                                     storeLocal(ownsDispatchLocal);
 
-                                    Label unchanged = new Label();
-                                    loadLocal(ownsDispatchLocal);
-                                    ifZCmp(EQ, unchanged);
+                                    // Helpers consume a one-shot ThreadLocal marker, so inserted bytecode
+                                    // has no new branches/stack-map frames and super-delegation is not shifted twice.
                                     if (eventCoordinates && usesMouseButtonEvent(name)) {
                                         loadThis();
                                         loadArg(0);
@@ -118,7 +118,6 @@ public final class ChatImeAgent {
                                                 new org.objectweb.asm.commons.Method("shiftPointerY", "(Ljava/lang/Object;D)D"));
                                         storeArg(1);
                                     }
-                                    mark(unchanged);
                                 }
 
                                 @Override
@@ -182,17 +181,27 @@ public final class ChatImeAgent {
     public static boolean beginPointerDispatch(Object screen) {
         if (!isChatScreenInstance(screen) || Boolean.TRUE.equals(POINTER_DISPATCH.get())) return false;
         POINTER_DISPATCH.set(Boolean.TRUE);
+        POINTER_NEEDS_SHIFT.set(Boolean.TRUE);
         return true;
     }
 
     public static void endPointerDispatch(Object screen, boolean ownsDispatch) {
-        if (ownsDispatch) POINTER_DISPATCH.remove();
+        if (ownsDispatch) {
+            POINTER_NEEDS_SHIFT.remove();
+            POINTER_DISPATCH.remove();
+        }
+    }
+
+    private static boolean consumePendingPointerShift() {
+        if (!Boolean.TRUE.equals(POINTER_NEEDS_SHIFT.get())) return false;
+        POINTER_NEEDS_SHIFT.remove();
+        return true;
     }
 
     /** Minecraft 26.3 passes immutable MouseButtonEvent records rather than raw x/y/button args. */
     public static Object shiftMouseEvent(Object screen, Object event) {
         try {
-            if (event == null || !isChatScreenInstance(screen)) return event;
+            if (event == null || !consumePendingPointerShift()) return event;
             float offset = getOffset(screen);
             if (offset <= 0f || !event.getClass().getSimpleName().equals("MouseButtonEvent")) return event;
             Object xValue = invokeNoArgs(event, "x");
@@ -243,7 +252,7 @@ public final class ChatImeAgent {
     /** Screen pointer coordinates are translated inversely to keep native widget hit targets aligned. */
     public static double shiftPointerY(Object screen, double originalY) {
         try {
-            if (!isChatScreenInstance(screen)) return originalY;
+            if (!consumePendingPointerShift()) return originalY;
             return originalY + getOffset(screen);
         } catch (Throwable ignored) {
             return originalY;
