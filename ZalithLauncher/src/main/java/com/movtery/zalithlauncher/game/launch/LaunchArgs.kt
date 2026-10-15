@@ -63,8 +63,7 @@ class LaunchArgs(
     private val gameManifest: GameManifest,
     private val runtime: Runtime,
     private val readAssetsFile: (path: String) -> String,
-    private val getCacioJavaArgs: (isJava8: Boolean) -> List<String>,
-    private val chatImeAgentPath: String? = null
+    private val getCacioJavaArgs: (isJava8: Boolean) -> List<String>
 ) {
     fun getAllArgs(): List<String> {
         val argsList: MutableList<String> = ArrayList()
@@ -177,13 +176,6 @@ class LaunchArgs(
 
     private fun getJavaArgs(): List<String> {
         val argsList: MutableList<String> = ArrayList()
-
-        // Patch the live vanilla ChatScreen transform, without changing a game jar or mods directory.
-        chatImeAgentPath?.takeIf { File(it).isFile }?.let { agentPath ->
-            argsList.add("-javaagent:$agentPath")
-            val stateFile = File(PathManager.DIR_FILES_PRIVATE, "chat-ime-state.bin")
-            argsList.add("-Dzalith.chatime.state=${stateFile.absolutePath}")
-        }
 
         if (account.isLocalAccount()) {
             if (account.hasSkinFile || account.getCapeFile().exists()) {
