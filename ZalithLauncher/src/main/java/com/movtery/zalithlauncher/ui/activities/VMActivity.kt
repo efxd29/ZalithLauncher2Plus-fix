@@ -47,19 +47,21 @@ import androidx.annotation.Keep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.Lifecycle
@@ -969,6 +971,14 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
+            // Keep the render surface anchored to the top. Reduce its available height
+            // while the IME is visible so Minecraft recalculates its own bottom UI; never
+            // translate the entire game surface upward.
+            val density = LocalDensity.current
+            val imeHeight = with(density) {
+                WindowInsets.ime.getBottom(this).toDp()
+            }
+            val gameSurfaceHeight = (maxHeight - imeHeight).coerceAtLeast(1.dp)
             val screenSize = rememberBoxSize()
 
             val changed by vmViewModel.onConfigurationChanged.collectAsStateWithLifecycle()
@@ -982,12 +992,12 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             }
 
             AndroidView(
-                // Keep Minecraft's own chat and command suggestions in the game surface.
-                // When the IME opens, resize that surface above the keyboard instead of
-                // drawing a fake Compose text preview on top of the game.
+                // Resize from the top edge only. Do not use absoluteOffset/imePadding here:
+                // those can shift the whole rendered game instead of just reflowing its UI.
                 modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding(),
+                    .fillMaxWidth()
+                    .height(gameSurfaceHeight)
+                    .align(Alignment.TopStart),
                 factory = { context ->
                     val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
                         (!Renderers.isCurrentRendererValid() ||
