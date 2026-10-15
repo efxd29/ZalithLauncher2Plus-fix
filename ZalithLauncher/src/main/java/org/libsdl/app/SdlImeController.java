@@ -64,57 +64,6 @@ final class SdlImeController {
         return mTextInputActive || mForcedByLauncher;
     }
 
-    private static boolean isNativeTextInputActiveSafely() {
-        if (!SdlBridge.getSdlEnabled()) return false;
-        try {
-            return SdlBridge.isNativeTextInputActive();
-        } catch (UnsatisfiedLinkError ignored) {
-            return false;
-        }
-    }
-
-    /** True when Minecraft, rather than a launcher overlay, owns the active SDL text field. */
-    static boolean isGameTextInputActiveForRouting() {
-        // The Java show/hide mirror can move a frame ahead of Minecraft. Use the native SDL
-        // text-input state as the authority, or text can be sent as both a key and a text event.
-        return !mForcedByLauncher && isNativeTextInputActiveSafely();
-    }
-
-    static boolean isInputForcedByLauncher() {
-        return mForcedByLauncher;
-    }
-
-    static boolean shouldDelaySlashText(String text) {
-        return text != null && text.startsWith("/") && SdlBridge.getSdlEnabled()
-                && !mForcedByLauncher && !isGameTextInputActiveForRouting();
-    }
-
-    static void commitNativeText(String text, int newCursorPosition) {
-        commitNativeText(text, newCursorPosition, shouldDelaySlashText(text));
-    }
-
-    static void commitNativeText(String text, int newCursorPosition, boolean delaySlashTransition) {
-        if (text == null || text.isEmpty()) return;
-        if (delaySlashTransition && text.startsWith("/")) {
-            // The slash key opens vanilla's command editor and inserts '/'. This is also needed
-            // when a soft IME reports the slash through commitText while dispatchKeyEvent is true.
-            // Own that one key here and do not also inject '/' as SDL text (which gets dropped or
-            // duplicated). Deliver any suffix only after Minecraft switches to its text channel.
-            try {
-                SDLInputConnection.nativeGenerateScancodeForUnichar('/');
-            } catch (UnsatisfiedLinkError ignored) {
-                // If JNI is not registered yet, do not crash the launcher input callback.
-            }
-            String remaining = text.substring(1);
-            if (!remaining.isEmpty()) {
-                SDLActivity.commandHandler.postDelayed(
-                        () -> SDLInputConnection.nativeCommitText(remaining, newCursorPosition), 48L);
-            }
-        } else {
-            SDLInputConnection.nativeCommitText(text, newCursorPosition);
-        }
-    }
-
     static boolean isEditAvailable() {
         return mEdit != null;
     }
@@ -148,7 +97,6 @@ final class SdlImeController {
         Log.i(TAG, "IME: show requested by " + source);
         if (source == Source.GAME) {
             mTextInputActive = true;
-            mForcedByLauncher = false;
         }
         return post(() -> doShow(source, inputType, x, y, w, h));
     }
@@ -206,19 +154,14 @@ final class SdlImeController {
         if (source == Source.GAME) {
             TouchCharInput.disableActiveInput();
         } else if (!mTextInputActive && !mForcedByLauncher) {
-            // The SDL Java callback can be absent on MC 26.3 even while the game's native
-            // text channel is active. Do not mark that game-owned channel as launcher-forced,
-            // or printable input will be dispatched twice through keys and text.
-            if (isNativeTextInputActiveSafely()) {
-                Log.i(TAG, "IME: preserving the already-active game text channel");
-            } else {
-                if (!SdlBridge.setNativeTextInputActive(true)) {
-                    Log.w(TAG, "IME: show by " + source + " rejected, native text input unavailable");
-                    return;
-                }
-                mForcedByLauncher = true;
-                Log.i(TAG, "IME: native text input force-activated by " + source);
+            // 游戏侧文本输入通道关闭（如模组自绘输入界面会主动关闭通道）时，
+            // 启动器显式唤起输入法需代为激活 native 通道，否则输入文本无法送达游戏
+            if (!SdlBridge.setNativeTextInputActive(true)) {
+                Log.w(TAG, "IME: show by " + source + " rejected, native text input unavailable");
+                return;
             }
+            mForcedByLauncher = true;
+            Log.i(TAG, "IME: native text input force-activated by " + source);
         }
 
         // 自动弹出被关闭时延迟落编辑视图，但焦点落在隐藏编辑器上会让后续实体键盘输入触发软键盘

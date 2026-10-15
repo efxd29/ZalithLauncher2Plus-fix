@@ -47,24 +47,18 @@ import androidx.annotation.Keep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.Lifecycle
@@ -125,7 +119,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -506,7 +499,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         // periodic frame pacing hiccups while the game is rendering.
         lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
-                delay(10_000L)
+                delay(1_000L)
                 vmViewModel.checkpointPlayTime()
             }
         }
@@ -655,9 +648,6 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
     override fun onStop() {
         super.onStop()
-        // Persist once when leaving gameplay rather than forcing storage writes every second
-        // on a device that is also rendering Minecraft.
-        lifecycleScope.launch(Dispatchers.IO) { vmViewModel.checkpointPlayTime() }
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0)
     }
 
@@ -839,7 +829,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         surface.setFrameRate(
             maxRefreshRateMode(display).refreshRate,
             Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-            Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS
+            Surface.CHANGE_FRAME_RATE_ALWAYS
         )
     }
 
@@ -970,26 +960,14 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     private fun Screen(
         content: @Composable () -> Unit = {}
     ) {
+        val imeInsets = WindowInsets.ime
+        val inputArea by withHandler { inputArea }.collectAsStateWithLifecycle()
+
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            // Keep the render surface anchored to the top. Reduce its available height
-            // while the IME is visible so Minecraft recalculates its own bottom UI; never
-            // translate the entire game surface upward.
-            val density = LocalDensity.current
-            val imeInsets = WindowInsets.ime
-            var imeBottomPx by remember { mutableIntStateOf(0) }
-            LaunchedEffect(density) {
-                snapshotFlow { imeInsets.getBottom(density) }
-                    .collectLatest { settledHeight ->
-                        delay(100)
-                        imeBottomPx = settledHeight
-                    }
-            }
-            val imeHeight = with(density) { imeBottomPx.toDp() }
-            val gameSurfaceHeight = (maxHeight - imeHeight).coerceAtLeast(1.dp)
             val screenSize = rememberBoxSize()
 
             val changed by vmViewModel.onConfigurationChanged.collectAsStateWithLifecycle()
@@ -1003,12 +981,17 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             }
 
             AndroidView(
-                // Resize from the top edge only. Do not use absoluteOffset/imePadding here:
-                // those can shift the whole rendered game instead of just reflowing its UI.
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(gameSurfaceHeight)
-                    .align(Alignment.TopStart),
+                    .fillMaxSize()
+                    .absoluteOffset {
+                        val imeHeight = imeInsets.getBottom(this@absoluteOffset)
+                        // With touch controls, preserve their measured bottom gap. Without
+                        // them, still move the Minecraft framebuffer above the IME so the
+                        // vanilla chat/command bar is not covered by the keyboard.
+                        val bottomDistance = inputArea?.let { screenSize.height - it.bottom } ?: 0
+                        val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
+                        IntOffset(0, -bottomPadding)
+                    },
                 factory = { context ->
                     val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
                         (!Renderers.isCurrentRendererValid() ||

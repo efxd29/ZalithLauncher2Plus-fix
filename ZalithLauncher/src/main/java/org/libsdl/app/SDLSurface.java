@@ -54,13 +54,6 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
     // Is SurfaceView ready for rendering
     protected boolean mIsSurfaceReady;
-    private int mLastReportedWidth = -1;
-    private int mLastReportedHeight = -1;
-    private int mLastReportedFormat = Integer.MIN_VALUE;
-    private int mLastInsetLeft = Integer.MIN_VALUE;
-    private int mLastInsetRight = Integer.MIN_VALUE;
-    private int mLastInsetTop = Integer.MIN_VALUE;
-    private int mLastInsetBottom = Integer.MIN_VALUE;
 
     // Last absolute position reported by a touchpad, used to derive relative motion
     protected float mLastTouchpadX, mLastTouchpadY;
@@ -137,14 +130,6 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         if (!SdlBridge.getSdlEnabled()) return;
-        mLastReportedWidth = -1;
-        mLastReportedHeight = -1;
-        mLastReportedFormat = Integer.MIN_VALUE;
-        mLastInsetLeft = Integer.MIN_VALUE;
-        mLastInsetRight = Integer.MIN_VALUE;
-        mLastInsetTop = Integer.MIN_VALUE;
-        mLastInsetBottom = Integer.MIN_VALUE;
-        mIsSurfaceReady = false;
         Log.v("SDL", "surfaceCreated()");
         SDLActivity.onNativeSurfaceCreated();
     }
@@ -180,12 +165,6 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
         Log.v("SDL", "surfaceChanged()");
 
         if (SDLActivity.mSingleton == null) {
-            return;
-        }
-        // VMActivity can re-report the exact same surface size during Compose/IME inset changes.
-        // Re-registering an unchanged native surface adds avoidable render-thread stalls.
-        if (width == mLastReportedWidth && height == mLastReportedHeight
-                && format == mLastReportedFormat && mIsSurfaceReady) {
             return;
         }
 
@@ -255,9 +234,6 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
         /* Surface is ready */
         mIsSurfaceReady = true;
-        mLastReportedWidth = width;
-        mLastReportedHeight = height;
-        mLastReportedFormat = format;
 
         SDLActivity.mNextNativeState = SDLActivity.NativeState.RESUMED;
         SDLActivity.handleNativeState();
@@ -280,14 +256,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                                                WindowInsets.Type.tappableElement() |
                                                WindowInsets.Type.displayCutout());
 
-            if (combined.left != mLastInsetLeft || combined.right != mLastInsetRight
-                    || combined.top != mLastInsetTop || combined.bottom != mLastInsetBottom) {
-                mLastInsetLeft = combined.left;
-                mLastInsetRight = combined.right;
-                mLastInsetTop = combined.top;
-                mLastInsetBottom = combined.bottom;
-                SDLActivity.onNativeInsetsChanged(combined.left, combined.right, combined.top, combined.bottom);
-            }
+            SDLActivity.onNativeInsetsChanged(combined.left, combined.right, combined.top, combined.bottom);
 
             SdlImeController.notifyVisibilityChanged(insets.isVisible(WindowInsets.Type.ime()));
         }
