@@ -54,6 +54,13 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
     // Is SurfaceView ready for rendering
     protected boolean mIsSurfaceReady;
+    private int mLastReportedWidth = -1;
+    private int mLastReportedHeight = -1;
+    private int mLastReportedFormat = Integer.MIN_VALUE;
+    private int mLastInsetLeft = Integer.MIN_VALUE;
+    private int mLastInsetRight = Integer.MIN_VALUE;
+    private int mLastInsetTop = Integer.MIN_VALUE;
+    private int mLastInsetBottom = Integer.MIN_VALUE;
 
     // Last absolute position reported by a touchpad, used to derive relative motion
     protected float mLastTouchpadX, mLastTouchpadY;
@@ -130,6 +137,14 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         if (!SdlBridge.getSdlEnabled()) return;
+        mLastReportedWidth = -1;
+        mLastReportedHeight = -1;
+        mLastReportedFormat = Integer.MIN_VALUE;
+        mLastInsetLeft = Integer.MIN_VALUE;
+        mLastInsetRight = Integer.MIN_VALUE;
+        mLastInsetTop = Integer.MIN_VALUE;
+        mLastInsetBottom = Integer.MIN_VALUE;
+        mIsSurfaceReady = false;
         Log.v("SDL", "surfaceCreated()");
         SDLActivity.onNativeSurfaceCreated();
     }
@@ -165,6 +180,12 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
         Log.v("SDL", "surfaceChanged()");
 
         if (SDLActivity.mSingleton == null) {
+            return;
+        }
+        // VMActivity can re-report the exact same surface size during Compose/IME inset changes.
+        // Re-registering an unchanged native surface adds avoidable render-thread stalls.
+        if (width == mLastReportedWidth && height == mLastReportedHeight
+                && format == mLastReportedFormat && mIsSurfaceReady) {
             return;
         }
 
@@ -234,6 +255,9 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
         /* Surface is ready */
         mIsSurfaceReady = true;
+        mLastReportedWidth = width;
+        mLastReportedHeight = height;
+        mLastReportedFormat = format;
 
         SDLActivity.mNextNativeState = SDLActivity.NativeState.RESUMED;
         SDLActivity.handleNativeState();
@@ -256,7 +280,14 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                                                WindowInsets.Type.tappableElement() |
                                                WindowInsets.Type.displayCutout());
 
-            SDLActivity.onNativeInsetsChanged(combined.left, combined.right, combined.top, combined.bottom);
+            if (combined.left != mLastInsetLeft || combined.right != mLastInsetRight
+                    || combined.top != mLastInsetTop || combined.bottom != mLastInsetBottom) {
+                mLastInsetLeft = combined.left;
+                mLastInsetRight = combined.right;
+                mLastInsetTop = combined.top;
+                mLastInsetBottom = combined.bottom;
+                SDLActivity.onNativeInsetsChanged(combined.left, combined.right, combined.top, combined.bottom);
+            }
 
             SdlImeController.notifyVisibilityChanged(insets.isVisible(WindowInsets.Type.ime()));
         }
@@ -319,7 +350,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 //                y = motionListener.getEventY(event, i);
 //                relative = motionListener.inRelativeMode();
 //
-//                SDLActivity.onNativeMouse(buttonState, action, x, y, relative);
+//                SDLActivity.dispatchNativeMouse(buttonState, action, x, y, relative);
 //            } else if (toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER) {
 //                pointerId = event.getPointerId(i);
 //                x = event.getX(i);
@@ -451,7 +482,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                 case MotionEvent.ACTION_SCROLL:
                     x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, i);
                     y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, i);
-                    SDLActivity.onNativeMouse(0, action, x, y, false);
+                    SDLActivity.dispatchNativeMouse(0, action, x, y, false);
                     return true;
 
                 case MotionEvent.ACTION_HOVER_MOVE:
@@ -482,7 +513,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                         x = event.getX(i);
                         y = event.getY(i);
                     }
-                    SDLActivity.onNativeMouse(0, action, x, y, true);
+                    SDLActivity.dispatchNativeMouse(0, action, x, y, true);
                     return true;
 
                 case MotionEvent.ACTION_DOWN:
@@ -517,7 +548,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                     y = event.getY(i);
                     int button = event.getButtonState();
 
-                    SDLActivity.onNativeMouse(button, action, x, y, true);
+                    SDLActivity.dispatchNativeMouse(button, action, x, y, true);
                     return true;
             }
         }

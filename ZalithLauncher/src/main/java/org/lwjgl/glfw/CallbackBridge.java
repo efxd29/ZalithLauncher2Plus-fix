@@ -102,6 +102,12 @@ public class CallbackBridge {
                     try {
                         LoggerBridge.append("ZalithLauncher: loading SDL3");
                         System.loadLibrary("SDL3");
+                        try {
+                            SDLActivity.nativeSetupJNI();
+                            LoggerBridge.append("ZalithLauncher: registered SDLActivity JNI callbacks");
+                        } catch (UnsatisfiedLinkError setupError) {
+                            LoggerBridge.append("ZalithLauncher: SDLActivity JNI setup unavailable; native mouse events will use the safe fallback");
+                        }
                         LoggerBridge.append("ZalithLauncher: loading SDL2");
                         System.loadLibrary("SDL2");
                         LoggerBridge.append("ZalithLauncher: setting up SDL JNI");
@@ -178,7 +184,7 @@ public class CallbackBridge {
         deltaY = 0f;
         nativeSendCursorPos(mouseX, mouseY);
         if (!SdlBridge.getSdlEnabled()) return;
-        SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, x, y, false);
+        SDLActivity.dispatchNativeMouse(0, MotionEvent.ACTION_MOVE, x, y, false);
     }
 
     public static void sendCursorDelta(float x, float y) {
@@ -188,7 +194,7 @@ public class CallbackBridge {
         mouseY += y;
         nativeSendCursorPos(mouseX, mouseY);
         if (!SdlBridge.getSdlEnabled()) return;
-        SDLActivity.onNativeMouse(0, MotionEvent.ACTION_MOVE, x, y, true);
+        SDLActivity.dispatchNativeMouse(0, MotionEvent.ACTION_MOVE, x, y, true);
     }
 
     public static void sendKeycode(int keycode, char keychar, int scancode, int modifiers, boolean isDown) {
@@ -282,7 +288,7 @@ public class CallbackBridge {
             } else {
                 sMouseButtonState &= ~aKey;
             }
-            SDLActivity.onNativeMouse(sMouseButtonState, isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, mouseX, mouseY, false);
+            SDLActivity.dispatchNativeMouse(sMouseButtonState, isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, mouseX, mouseY, false);
         }
     }
 
@@ -295,7 +301,7 @@ public class CallbackBridge {
         nativeSendScroll(xoffset, yoffset);
         // SDL 输入双路
         if (!SdlBridge.getSdlEnabled()) return;
-        SDLActivity.onNativeMouse(0, MotionEvent.ACTION_SCROLL, (float) xoffset, (float) yoffset, false);
+        SDLActivity.dispatchNativeMouse(0, MotionEvent.ACTION_SCROLL, (float) xoffset, (float) yoffset, false);
     }
 
     public static void sendUpdateWindowSize(int w, int h) {
@@ -312,7 +318,7 @@ public class CallbackBridge {
     public static void resetInputState() {
         nativeResetInputState();
         if (SdlBridge.getSdlEnabled() && sMouseButtonState != 0) {
-            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_UP, mouseX, mouseY, false);
+            SDLActivity.dispatchNativeMouse(0, MotionEvent.ACTION_UP, mouseX, mouseY, false);
         }
         deltaX = 0f;
         deltaY = 0f;
@@ -522,4 +528,3 @@ public class CallbackBridge {
         sGamepadAxisBuffer = nativeCreateGamepadAxisBuffer().order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
     }
 }
-

@@ -790,7 +790,7 @@ class SDLGenericMotionListener_API14 implements View.OnGenericMotionListener {
                     case MotionEvent.ACTION_SCROLL:
                         x = event.getAxisValue(MotionEvent.AXIS_HSCROLL, i);
                         y = event.getAxisValue(MotionEvent.AXIS_VSCROLL, i);
-                        SDLActivity.onNativeMouse(0, action, x, y, false);
+                        SDLActivity.dispatchNativeMouse(0, action, x, y, false);
                         consumed = true;
                         break;
 
@@ -798,7 +798,7 @@ class SDLGenericMotionListener_API14 implements View.OnGenericMotionListener {
                         x = getEventX(event, i);
                         y = getEventY(event, i);
 
-                        SDLActivity.onNativeMouse(0, action, x, y, checkRelativeEvent(event));
+                        SDLActivity.dispatchNativeMouse(0, action, x, y, checkRelativeEvent(event));
                         consumed = true;
                         break;
 

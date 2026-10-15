@@ -499,7 +499,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         // periodic frame pacing hiccups while the game is rendering.
         lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
-                delay(5_000L)
+                delay(10_000L)
                 vmViewModel.checkpointPlayTime()
             }
         }
@@ -648,6 +648,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
     override fun onStop() {
         super.onStop()
+        // Persist once when leaving gameplay rather than forcing storage writes every second
+        // on a device that is also rendering Minecraft.
+        lifecycleScope.launch(Dispatchers.IO) { vmViewModel.checkpointPlayTime() }
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0)
     }
 
@@ -738,7 +741,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         val isPressed = event.action == KeyEvent.ACTION_DOWN
 
         val code = AllSettings.physicalKeyImeCode.state
-        if (isPressed && code != null && event.keyCode == code) {
+        if (isPressed && event.repeatCount == 0 && code != null && event.keyCode == code) {
             //用户按下了绑定呼出输入法的按键
             //开启或关闭输入法
             vmViewModel.textInputMode = vmViewModel.textInputMode.switch()
@@ -829,7 +832,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         surface.setFrameRate(
             maxRefreshRateMode(display).refreshRate,
             Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-            Surface.CHANGE_FRAME_RATE_ALWAYS
+            Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS
         )
     }
 
@@ -960,9 +963,6 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     private fun Screen(
         content: @Composable () -> Unit = {}
     ) {
-        val imeInsets = WindowInsets.ime
-        val inputArea by withHandler { inputArea }.collectAsStateWithLifecycle()
-
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -981,15 +981,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             }
 
             AndroidView(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .absoluteOffset {
-                        val area = inputArea ?: return@absoluteOffset IntOffset.Zero
-                        val imeHeight = imeInsets.getBottom(this@absoluteOffset)
-                        val bottomDistance = screenSize.height - area.bottom
-                        val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
-                        IntOffset(0, -bottomPadding)
-                    },
+                modifier = Modifier.fillMaxSize(),
                 factory = { context ->
                     val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
                         (!Renderers.isCurrentRendererValid() ||

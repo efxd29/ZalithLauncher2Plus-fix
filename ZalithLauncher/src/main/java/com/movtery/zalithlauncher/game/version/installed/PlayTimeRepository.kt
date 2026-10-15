@@ -19,12 +19,11 @@
 package com.movtery.zalithlauncher.game.version.installed
 
 import com.movtery.zalithlauncher.setting.launcherMMKV
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 object PlayTimeRepository {
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val dateFormat = DateTimeFormatter.ISO_LOCAL_DATE
 
     private fun lastPlayedKey(versionName: String) = "pt_last_$versionName"
     private fun totalPlayTimeKey(versionName: String) = "pt_total_$versionName"
@@ -44,15 +43,13 @@ object PlayTimeRepository {
         versionNames.sumOf { getDailyPlayTime(date, it) }
 
     /** Today's date string (YYYY-MM-DD). */
-    fun today(): String = dateFormat.format(Date())
+    fun today(): String = LocalDate.now().format(dateFormat)
 
     /** The last N day strings including today, newest first. */
     fun lastNDays(n: Int): List<String> {
-        val cal = java.util.Calendar.getInstance()
-        return (0 until n).map {
-            val d = dateFormat.format(cal.time)
-            cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
-            d
+        val today = LocalDate.now()
+        return (0 until n).map { offset ->
+            today.minusDays(offset.toLong()).format(dateFormat)
         }
     }
 
@@ -71,11 +68,11 @@ object PlayTimeRepository {
     fun recordLiveProgress(versionName: String, durationMs: Long) {
         if (durationMs <= 0L) return
 
-        val now = Date()
+        val now = System.currentTimeMillis()
         val mmkv = launcherMMKV()
         val totalKey = totalPlayTimeKey(versionName)
-        val todayKey = dailyKey(dateFormat.format(now), versionName)
-        mmkv.putLong(lastPlayedKey(versionName), now.time)
+        val todayKey = dailyKey(today(), versionName)
+        mmkv.putLong(lastPlayedKey(versionName), now)
         mmkv.putLong(totalKey, mmkv.getLong(totalKey, 0L) + durationMs)
         mmkv.putLong(todayKey, mmkv.getLong(todayKey, 0L) + durationMs)
         mmkv.apply()

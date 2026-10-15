@@ -75,7 +75,7 @@ class LogsUploadViewModel: ViewModel() {
      * 检查文件是否超过 2MB
      */
     private fun File.exceeds2MB(): Boolean {
-        return !exists() && !isFile && length() > 2 * 1024 * 1024
+        return !exists() || !isFile || length() > 2 * 1024 * 1024
     }
 
     private suspend fun <E: AbstractAPI> mirroredAPI(
