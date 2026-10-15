@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.RandomAccessFile;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
@@ -21,6 +22,7 @@ public final class ChatImeAgent {
     private static final int MAGIC = 0x5A43494D; // "ZCIM"
     private static volatile MappedByteBuffer state;
     private static volatile long lastMapAttempt;
+    private static final ThreadLocal<Boolean> POINTER_DISPATCH = new ThreadLocal<Boolean>();
     private static FileChannel stateChannel;
     private static RandomAccessFile stateFile;
 
@@ -53,9 +55,12 @@ public final class ChatImeAgent {
                         }
 
                         Type[] args = Type.getArgumentTypes(descriptor);
-                        if (chatScreen && name.equals("render") && args.length >= 1
+                        boolean renderMethod = chatScreen
+                                && (name.equals("render") || name.equals("extractRenderState"))
+                                && args.length >= 1
                                 && args[0].getSort() == Type.OBJECT
-                                && isGraphicsType(args[0].getInternalName())) {
+                                && isGraphicsType(args[0].getInternalName());
+                        if (renderMethod) {
                             return new AdviceAdapter(Opcodes.ASM9, delegate, access, name, descriptor) {
                                 private int transformedLocal = -1;
 
@@ -81,15 +86,48 @@ public final class ChatImeAgent {
                             };
                         }
 
-                        if (baseScreen && isPointerMethod(name) && hasTwoLeadingDoubles(args)) {
+                        boolean eventCoordinates = hasMouseButtonEvent(args);
+                        boolean numericCoordinates = hasTwoLeadingDoubles(args);
+                        if ((chatScreen || baseScreen) && isPointerMethod(name)
+                                && (eventCoordinates || numericCoordinates)) {
                             return new AdviceAdapter(Opcodes.ASM9, delegate, access, name, descriptor) {
+                                private int ownsDispatchLocal = -1;
+
                                 @Override
                                 protected void onMethodEnter() {
                                     loadThis();
-                                    loadArg(1);
                                     invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
-                                            new org.objectweb.asm.commons.Method("shiftPointerY", "(Ljava/lang/Object;D)D"));
-                                    storeArg(1);
+                                            new org.objectweb.asm.commons.Method("beginPointerDispatch", "(Ljava/lang/Object;)Z"));
+                                    ownsDispatchLocal = newLocal(Type.BOOLEAN_TYPE);
+                                    storeLocal(ownsDispatchLocal);
+
+                                    Label unchanged = new Label();
+                                    loadLocal(ownsDispatchLocal);
+                                    ifZCmp(EQ, unchanged);
+                                    if (eventCoordinates && usesMouseButtonEvent(name)) {
+                                        loadThis();
+                                        loadArg(0);
+                                        invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
+                                                new org.objectweb.asm.commons.Method("shiftMouseEvent", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"));
+                                        checkCast(args[0]);
+                                        storeArg(0);
+                                    } else if (numericCoordinates) {
+                                        loadThis();
+                                        loadArg(1);
+                                        invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
+                                                new org.objectweb.asm.commons.Method("shiftPointerY", "(Ljava/lang/Object;D)D"));
+                                        storeArg(1);
+                                    }
+                                    mark(unchanged);
+                                }
+
+                                @Override
+                                protected void onMethodExit(int opcode) {
+                                    if (ownsDispatchLocal < 0) return;
+                                    loadThis();
+                                    loadLocal(ownsDispatchLocal);
+                                    invokeStatic(Type.getObjectType("com/movtery/chatime/agent/ChatImeAgent"),
+                                            new org.objectweb.asm.commons.Method("endPointerDispatch", "(Ljava/lang/Object;Z)V"));
                                 }
                             };
                         }
@@ -115,8 +153,10 @@ public final class ChatImeAgent {
     }
 
     private static boolean isGraphicsType(String name) {
-        return name.endsWith("/GuiGraphics") || name.endsWith("/PoseStack")
-                || name.endsWith("/MatrixStack") || name.endsWith("/DrawContext");
+        // Minecraft 26.3 renamed GuiGraphics to GuiGraphicsExtractor.
+        return name.endsWith("/GuiGraphics") || name.endsWith("/GuiGraphicsExtractor")
+                || name.endsWith("/PoseStack") || name.endsWith("/MatrixStack")
+                || name.endsWith("/DrawContext");
     }
 
     private static boolean isPointerMethod(String name) {
@@ -129,6 +169,51 @@ public final class ChatImeAgent {
         return args.length >= 2 && args[0].getSort() == Type.DOUBLE && args[1].getSort() == Type.DOUBLE;
     }
 
+    private static boolean hasMouseButtonEvent(Type[] args) {
+        return args.length >= 1 && args[0].getSort() == Type.OBJECT
+                && args[0].getInternalName().endsWith("/MouseButtonEvent");
+    }
+
+    private static boolean usesMouseButtonEvent(String name) {
+        return name.equals("mouseClicked") || name.equals("mouseReleased") || name.equals("mouseDragged");
+    }
+
+    /** Prevent double translation when a ChatScreen override delegates to Screen.super. */
+    public static boolean beginPointerDispatch(Object screen) {
+        if (!isChatScreenInstance(screen) || Boolean.TRUE.equals(POINTER_DISPATCH.get())) return false;
+        POINTER_DISPATCH.set(Boolean.TRUE);
+        return true;
+    }
+
+    public static void endPointerDispatch(Object screen, boolean ownsDispatch) {
+        if (ownsDispatch) POINTER_DISPATCH.remove();
+    }
+
+    /** Minecraft 26.3 passes immutable MouseButtonEvent records rather than raw x/y/button args. */
+    public static Object shiftMouseEvent(Object screen, Object event) {
+        try {
+            if (event == null || !isChatScreenInstance(screen)) return event;
+            float offset = getOffset(screen);
+            if (offset <= 0f || !event.getClass().getSimpleName().equals("MouseButtonEvent")) return event;
+            Object xValue = invokeNoArgs(event, "x");
+            Object yValue = invokeNoArgs(event, "y");
+            Object buttonInfo = invokeNoArgs(event, "buttonInfo");
+            if (!(xValue instanceof Number) || !(yValue instanceof Number)) return event;
+            double x = ((Number) xValue).doubleValue();
+            double y = ((Number) yValue).doubleValue() + offset;
+            for (Constructor<?> constructor : event.getClass().getDeclaredConstructors()) {
+                Class<?>[] types = constructor.getParameterTypes();
+                if (types.length != 3 || types[0] != double.class || types[1] != double.class
+                        || (buttonInfo != null && !types[2].isInstance(buttonInfo))) continue;
+                constructor.setAccessible(true);
+                return constructor.newInstance(x, y, buttonInfo);
+            }
+        } catch (Throwable error) {
+            System.err.println("[ChatImeAgent] could not translate MouseButtonEvent: " + error);
+        }
+        return event;
+    }
+
     /** Push the existing vanilla graphics matrix so all native ChatScreen widgets move together. */
     public static boolean begin(Object screen, Object graphics) {
         try {
@@ -136,7 +221,7 @@ public final class ChatImeAgent {
             if (offset <= 0f || graphics == null) return false;
             Object pose = findPose(graphics);
             if (pose == null) return false;
-            invokeNoArgs(pose, "pushPose", "push");
+            invokeNoArgs(pose, "pushPose", "pushMatrix", "push");
             translate(pose, -offset);
             return true;
         } catch (Throwable error) {
@@ -149,7 +234,7 @@ public final class ChatImeAgent {
         if (!transformed) return;
         try {
             Object pose = findPose(graphics);
-            if (pose != null) invokeNoArgs(pose, "popPose", "pop");
+            if (pose != null) invokeNoArgs(pose, "popPose", "popMatrix", "pop");
         } catch (Throwable error) {
             System.err.println("[ChatImeAgent] end failed: " + error);
         }
@@ -236,7 +321,8 @@ public final class ChatImeAgent {
     private static Object findPose(Object graphics) throws Exception {
         if (graphics == null) return null;
         String simple = graphics.getClass().getSimpleName();
-        if ("PoseStack".equals(simple) || "MatrixStack".equals(simple)) return graphics;
+        if ("PoseStack".equals(simple) || "MatrixStack".equals(simple)
+                || "Matrix3x2fStack".equals(simple)) return graphics;
         for (String name : new String[]{"pose", "poseStack", "getPose", "getPoseStack", "matrices"}) {
             try {
                 Object result = invokeNoArgs(graphics, name);
@@ -248,19 +334,28 @@ public final class ChatImeAgent {
 
     private static void translate(Object pose, float y) throws Exception {
         for (Method method : allMethods(pose.getClass())) {
-            if (!method.getName().equals("translate") || method.getParameterTypes().length != 3) continue;
+            if (!method.getName().equals("translate") && !method.getName().equals("translateLocal")) continue;
             Class<?>[] types = method.getParameterTypes();
             method.setAccessible(true);
-            if (types[0] == double.class && types[1] == double.class && types[2] == double.class) {
+            if (types.length == 3 && types[0] == double.class && types[1] == double.class && types[2] == double.class) {
                 method.invoke(pose, 0.0d, (double) y, 0.0d);
                 return;
             }
-            if (types[0] == float.class && types[1] == float.class && types[2] == float.class) {
+            if (types.length == 3 && types[0] == float.class && types[1] == float.class && types[2] == float.class) {
                 method.invoke(pose, 0.0f, y, 0.0f);
                 return;
             }
+            // The Minecraft 26.3 Matrix3x2fStack is two-dimensional.
+            if (types.length == 2 && types[0] == float.class && types[1] == float.class) {
+                method.invoke(pose, 0.0f, y);
+                return;
+            }
+            if (types.length == 2 && types[0] == double.class && types[1] == double.class) {
+                method.invoke(pose, 0.0d, (double) y);
+                return;
+            }
         }
-        throw new NoSuchMethodException("PoseStack.translate");
+        throw new NoSuchMethodException("PoseStack/Matrix3x2fStack translate");
     }
 
     private static Object invokeNoArgs(Object target, String... names) throws Exception {
