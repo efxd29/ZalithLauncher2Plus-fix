@@ -266,7 +266,8 @@ class GameLauncher(
 
         //初始化运行环境
         this.runtime = runtime
-        val chatImeAgentPath = prepareChatImeAgent()
+        // Runtime ChatScreen transform targets modern SDL/GuiGraphicsExtractor clients only.
+        val chatImeAgentPath = if (isSdlRuntimeVersion()) prepareChatImeAgent() else null
         val launchArgs = LaunchArgs(
             runtimeLibraryPath = getRuntimeLibraryPath(),
             account = usingAccount,
