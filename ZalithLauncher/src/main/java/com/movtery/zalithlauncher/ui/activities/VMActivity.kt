@@ -979,9 +979,10 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             // while the IME is visible so Minecraft recalculates its own bottom UI; never
             // translate the entire game surface upward.
             val density = LocalDensity.current
+            val imeInsets = WindowInsets.ime
             var imeBottomPx by remember { mutableIntStateOf(0) }
             LaunchedEffect(density) {
-                snapshotFlow { WindowInsets.ime.getBottom(density) }
+                snapshotFlow { imeInsets.getBottom(density) }
                     .collectLatest { settledHeight ->
                         delay(100)
                         imeBottomPx = settledHeight
