@@ -8,6 +8,7 @@ import android.view.KeyEvent;
 import android.view.inputmethod.InputMethodManager;
 
 import org.libsdl.app.SDLActivity;
+import com.movtery.zalithlauncher.game.sdl.SdlBridge;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,16 +36,25 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
     private InputListener mListener;
 
     public void enableKeyboard() {
-        if (SDLActivity.isUsingSDLTextEdit()) {
-            // If the launcher keyboard was opened while Minecraft has no active text field,
-            // open the real vanilla chat with the normal T key. Minecraft/SDL then owns the IME.
-            // If a vanilla editor is already active, retain the existing SDL keyboard path.
-            if (SDLActivity.isSDLTextInputActive()) {
+        // On Minecraft 26.3 the SDL dummy editor is not created until the game requests text input.
+        // Therefore isUsingSDLTextEdit() alone is too late to decide whether the real chat should open:
+        // the old path fell through to this invisible launcher EditText and showed only the keyboard.
+        if (SdlBridge.getSdlEnabled() && SdlBridge.isSdlRenderActive()) {
+            if (SdlBridge.isNativeTextInputActive()) {
+                // Chat (or another real game text field) is already active: only show the native IME.
                 SDLActivity.enableSDLEditKeyboard();
             } else {
+                // Send the normal vanilla chat key, then ask SDL to show its IME even when its
+                // auto-show setting is disabled. The visible text field remains Minecraft's own.
                 SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_T);
                 SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_T);
+                SDLActivity.enableSDLEditKeyboard();
             }
+            return;
+        }
+
+        if (SDLActivity.isUsingSDLTextEdit()) {
+            SDLActivity.enableSDLEditKeyboard();
             return;
         }
         InputMethodManager imm = (InputMethodManager) getContext().getSystemService(INPUT_METHOD_SERVICE);
