@@ -36,7 +36,15 @@ public class TouchCharInput extends androidx.appcompat.widget.AppCompatEditText 
 
     public void enableKeyboard() {
         if (SDLActivity.isUsingSDLTextEdit()) {
-            SDLActivity.enableSDLEditKeyboard();
+            // If the launcher keyboard was opened while Minecraft has no active text field,
+            // open the real vanilla chat with the normal T key. Minecraft/SDL then owns the IME.
+            // If a vanilla editor is already active, retain the existing SDL keyboard path.
+            if (SDLActivity.isSDLTextInputActive()) {
+                SDLActivity.enableSDLEditKeyboard();
+            } else {
+                SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_T);
+                SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_T);
+            }
             return;
         }
         InputMethodManager imm = (InputMethodManager) getContext().getSystemService(INPUT_METHOD_SERVICE);
