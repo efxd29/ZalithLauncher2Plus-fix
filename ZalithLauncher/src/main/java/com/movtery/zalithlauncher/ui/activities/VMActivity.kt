@@ -57,9 +57,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsAnimationCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -102,7 +99,6 @@ import com.movtery.zalithlauncher.terracotta.TerracottaVPNService
 import com.movtery.zalithlauncher.ui.base.BaseAppCompatActivity
 import com.movtery.zalithlauncher.ui.base.ObserveFullScreenSetting
 import com.movtery.zalithlauncher.ui.components.rememberBoxSize
-import com.movtery.zalithlauncher.ui.control.input.ChatImeInsetBridge
 import com.movtery.zalithlauncher.ui.control.input.HidableInputLayout
 import com.movtery.zalithlauncher.ui.control.input.TextInputMode
 import com.movtery.zalithlauncher.ui.screens.game.elements.OpenFolderLayer
@@ -919,43 +915,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
      * Only the in-memory vanilla ChatScreen transform consumes this IME geometry.
      */
     private fun installChatImeBridge() {
+        // Keep the render surface at its existing bounds when Android displays the IME.
+        // Runtime class instrumentation is intentionally disabled until its behavior is validated.
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-        ChatImeInsetBridge.initialize(this)
-        val decor = window.decorView
-
-        fun publish(insets: WindowInsetsCompat) {
-            val imeType = WindowInsetsCompat.Type.ime()
-            val physicalHeight = decor.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
-            ChatImeInsetBridge.update(
-                visible = insets.isVisible(imeType),
-                imeBottomPx = insets.getInsets(imeType).bottom,
-                physicalHeightPx = physicalHeight
-            )
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(decor) { _, insets ->
-            publish(insets)
-            insets
-        }
-        ViewCompat.setWindowInsetsAnimationCallback(
-            decor,
-            object : WindowInsetsAnimationCompat.Callback(
-                WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE
-            ) {
-                override fun onProgress(
-                    insets: WindowInsetsCompat,
-                    runningAnimations: MutableList<WindowInsetsAnimationCompat>
-                ): WindowInsetsCompat {
-                    publish(insets)
-                    return insets
-                }
-
-                override fun onEnd(animation: WindowInsetsAnimationCompat) {
-                    ViewCompat.requestApplyInsets(decor)
-                }
-            }
-        )
-        decor.post { ViewCompat.requestApplyInsets(decor) }
     }
 
     @Composable
