@@ -499,7 +499,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         // periodic frame pacing hiccups while the game is rendering.
         lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
-                delay(1_000L)
+                delay(10_000L)
                 vmViewModel.checkpointPlayTime()
             }
         }
@@ -648,6 +648,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
     override fun onStop() {
         super.onStop()
+        // Persist once when leaving gameplay rather than forcing storage writes every second
+        // on a device that is also rendering Minecraft.
+        lifecycleScope.launch(Dispatchers.IO) { vmViewModel.checkpointPlayTime() }
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0)
     }
 
@@ -829,7 +832,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         surface.setFrameRate(
             maxRefreshRateMode(display).refreshRate,
             Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-            Surface.CHANGE_FRAME_RATE_ALWAYS
+            Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS
         )
     }
 
