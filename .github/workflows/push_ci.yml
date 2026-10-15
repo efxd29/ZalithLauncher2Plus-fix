@@ -1,4 +1,5 @@
 name: Build CI
+# Also build short-lived fix branches so source changes are compile-verified before delivery.
 
 on:
   push:
