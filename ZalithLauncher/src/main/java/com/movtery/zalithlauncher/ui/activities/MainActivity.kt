@@ -836,7 +836,35 @@ class MainActivity : BaseAppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        applyMaxRefreshRatePolicy()
         ControlManager.checkDefaultAndRefresh(this@MainActivity)
+    }
+
+    /**
+     * Request the highest refresh-rate mode available at the current physical resolution.
+     * This affects launcher UI frame presentation only; it does not impose an FPS cap on Minecraft.
+     */
+    @Suppress("DEPRECATION")
+    private fun applyMaxRefreshRatePolicy() {
+        val targetDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display
+        } else {
+            windowManager.defaultDisplay
+        } ?: return
+
+        val currentMode = targetDisplay.mode
+        val bestMode = targetDisplay.supportedModes.fold(currentMode) { best, mode ->
+            if (mode.physicalWidth == currentMode.physicalWidth &&
+                mode.physicalHeight == currentMode.physicalHeight &&
+                mode.refreshRate > best.refreshRate
+            ) mode else best
+        }
+
+        val attributes = window.attributes
+        if (attributes.preferredDisplayModeId != bestMode.modeId) {
+            attributes.preferredDisplayModeId = bestMode.modeId
+            window.attributes = attributes
+        }
     }
 
     override fun onDestroy() {
@@ -877,18 +905,14 @@ private fun PlayerNoticeDialog() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        fetch()
-        while (true) {
-            delay(10_000)
-            fetch()
-        }
-    }
-
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            fetch()
+            // Poll only while the launcher is visible; avoid duplicate background network work.
+            while (true) {
+                fetch()
+                delay(30_000)
+            }
         }
     }
 
