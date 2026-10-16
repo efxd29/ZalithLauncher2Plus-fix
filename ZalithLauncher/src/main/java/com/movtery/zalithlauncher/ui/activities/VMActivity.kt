@@ -1000,21 +1000,25 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
             // Bridge the live IME height from Android/Compose into a tiny shared file that the
             // embedded Minecraft OpenJDK process can read without depending on Android classes.
+            // Refresh it during the whole input session so a reader can reject stale keyboard data.
             LaunchedEffect(imeHeightPx, screenSize.height, surfaceShiftPx) {
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        val bridgeDirectory = getExternalFilesDir("keyboard-chat-lift")
-                            ?: File(filesDir, "keyboard-chat-lift")
-                        if (!bridgeDirectory.exists()) bridgeDirectory.mkdirs()
-                        val target = File(bridgeDirectory, "ime-height.txt")
-                        val temporary = File(bridgeDirectory, "ime-height.tmp")
-                        val contents = "${System.currentTimeMillis()},$imeHeightPx,${screenSize.height},$surfaceShiftPx"
-                        temporary.writeText(contents)
-                        if (!temporary.renameTo(target)) {
-                            target.writeText(contents)
-                            temporary.delete()
+                while (true) {
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            val bridgeDirectory = getExternalFilesDir("keyboard-chat-lift")
+                                ?: File(filesDir, "keyboard-chat-lift")
+                            if (!bridgeDirectory.exists()) bridgeDirectory.mkdirs()
+                            val target = File(bridgeDirectory, "ime-height.txt")
+                            val temporary = File(bridgeDirectory, "ime-height.tmp")
+                            val contents = "${System.currentTimeMillis()},$imeHeightPx,${screenSize.height},$surfaceShiftPx"
+                            temporary.writeText(contents)
+                            if (!temporary.renameTo(target)) {
+                                target.writeText(contents)
+                                temporary.delete()
+                            }
                         }
                     }
+                    delay(250)
                 }
             }
 
