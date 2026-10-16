@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - release-26.3-arm64
+      - performance-smoothness-opt
     paths:
       - '.github/workflows/last.yml'
 
