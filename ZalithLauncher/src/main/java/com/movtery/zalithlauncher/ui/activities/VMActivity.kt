@@ -974,6 +974,8 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         val imeInsets = WindowInsets.ime
         val inputArea by withHandler { inputArea }.collectAsStateWithLifecycle()
         val density = LocalDensity.current
+        // Published to the Minecraft JVM because its embedded OpenJDK cannot query Android WindowInsets directly.
+        val imeHeightPx = imeInsets.getBottom(density)
 
         BoxWithConstraints(
             modifier = Modifier
@@ -981,6 +983,10 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                 .background(Color.Black)
         ) {
             val screenSize = rememberBoxSize()
+            // Keep this in lockstep with the translation applied to AndroidView below.
+            val surfaceShiftPx = inputArea?.let { area ->
+                (imeHeightPx - (screenSize.height - area.bottom)).coerceAtLeast(0)
+            } ?: 0
 
             val changed by vmViewModel.onConfigurationChanged.collectAsStateWithLifecycle()
             LaunchedEffect(screenSize, changed) {
@@ -989,6 +995,26 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                 if (changed) {
                     requestRefreshWindowSize(screenSize = screenSize)
                     vmViewModel.onConfigurationChanged(false)
+                }
+            }
+
+            // Bridge the live IME height from Android/Compose into a tiny shared file that the
+            // embedded Minecraft OpenJDK process can read without depending on Android classes.
+            LaunchedEffect(imeHeightPx, screenSize.height, surfaceShiftPx) {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val bridgeDirectory = getExternalFilesDir("keyboard-chat-lift")
+                            ?: File(filesDir, "keyboard-chat-lift")
+                        if (!bridgeDirectory.exists()) bridgeDirectory.mkdirs()
+                        val target = File(bridgeDirectory, "ime-height.txt")
+                        val temporary = File(bridgeDirectory, "ime-height.tmp")
+                        val contents = "${System.currentTimeMillis()},$imeHeightPx,${screenSize.height},$surfaceShiftPx"
+                        temporary.writeText(contents)
+                        if (!temporary.renameTo(target)) {
+                            target.writeText(contents)
+                            temporary.delete()
+                        }
+                    }
                 }
             }
 
@@ -1010,11 +1036,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                             )
                     )
                     .absoluteOffset {
-                        val area = inputArea ?: return@absoluteOffset IntOffset.Zero
-                        val imeHeight = imeInsets.getBottom(this@absoluteOffset)
-                        val bottomDistance = screenSize.height - area.bottom
-                        val bottomPadding = (imeHeight - bottomDistance).coerceAtLeast(0)
-                        IntOffset(0, -bottomPadding)
+                        IntOffset(0, -surfaceShiftPx)
                     },
                 factory = { context ->
                     val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
