@@ -45,7 +45,7 @@ private const val TAG = "GamePathManager"
 object GamePathManager {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val mutex = Mutex()
-    private val defaultGamePath = File(PathManager.DIR_FILES_EXTERNAL, ".minecraft").absolutePath
+    private val defaultGamePath = File("/storage/emulated/0/.mc/.minecraft").absolutePath
     /**
      * 默认游戏目录的ID
      */
